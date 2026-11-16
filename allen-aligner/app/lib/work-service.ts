@@ -21,6 +21,23 @@ export async function workData(a:WorkActor){
  const tasks=await db.query('SELECT * FROM "WorkTask" WHERE "employeeId"=ANY($1::text[]) ORDER BY "createdAt" DESC',[ids]);
  const evaluations=await db.query('SELECT * FROM "WorkEvaluation" WHERE "employeeId"=ANY($1::text[]) ORDER BY "periodEnd" DESC',[ids]);
  const notifications=await db.query(`SELECT * FROM "WorkNotification" WHERE "recipientId"=$1 AND ($2::text IS NULL OR "employeeId"=$2) ORDER BY "createdAt" DESC LIMIT 200`,[a.id,a.employeeId]);
+ const clinicalCaseAssignments=a.employeeId?await db.query(`SELECT c.id AS "caseId",c."patientReference",c.status AS "caseStatus",
+   c."createdAt" AS "caseCreatedAt",d."fullName" AS "doctorName",cl.name AS "clinicName",
+   ca."assignedAt",ca.reason,ca.revision,
+   (SELECT m.text FROM "CaseMessage" m WHERE m."caseId"=c.id AND m."senderRole"='DOCTOR'
+     ORDER BY m."createdAt" DESC,m.id DESC LIMIT 1) AS "latestDoctorMessage",
+   (SELECT count(*)::int FROM "CaseMessage" m WHERE m."caseId"=c.id) AS "messageCount"
+   FROM "ClinicalCaseAssignment" ca
+   JOIN "WorkAccount" assigned ON assigned.id=ca."assignedTo"
+   JOIN "ClinicalIdentity" identity ON identity."accountId"=assigned.id
+   JOIN "PortalCase" c ON c.id=ca."caseId"
+   JOIN "Doctor" d ON d.id=c."doctorId"
+   JOIN "Clinic" cl ON cl.id=c."clinicId"
+   WHERE ca."assignedTo"=$1::uuid AND assigned."employeeId"=$2
+     AND assigned."isActive" AND NOT assigned."mustChangePassword"
+     AND assigned."clinicalRole" IN ('REVIEWER','LEAD') AND identity.status='ACTIVE'
+     AND c.status<>'DRAFT'
+   ORDER BY ca."assignedAt" DESC,ca."caseId"`,[a.id,a.employeeId]):[];
  const policies=await db.query('SELECT * FROM "WorkPolicy"');
  const holidays=await db.query('SELECT * FROM "WorkHoliday" ORDER BY day');
  const kpis=await db.query('SELECT * FROM "WorkKPI" ORDER BY designation,name');
@@ -34,7 +51,7 @@ export async function workData(a:WorkActor){
  let assets:Row[]=[];let assetsAvailable=true;
  try{assets=await db.query('SELECT "employeeId","assetCode","assetName","serialNumber",status,"issuedAt","returnedAt" FROM "HRAssetIssue" WHERE "employeeId"=ANY($1::text[]) ORDER BY "issuedAt" DESC',[ids]);}
  catch(error){if(!hasPgCode(error,'42P01'))throw error;assetsAvailable=false;}
- return {attendance,leave,assets,actor:a,employees,actionEmployeeIds:actionEmployees.map(e=>e.id),taskEmployeeIds:taskEmployees.map(e=>e.id),reports,tasks,evaluations,notifications,policy:policies[0],holidays,kpis,missing,auditTrail,users,availability:{missingWork:missingAvailable,assets:assetsAvailable}};
+ return {attendance,leave,assets,actor:a,employees,actionEmployeeIds:actionEmployees.map(e=>e.id),taskEmployeeIds:taskEmployees.map(e=>e.id),reports,tasks,evaluations,notifications,clinicalCaseAssignments,policy:policies[0],holidays,kpis,missing,auditTrail,users,availability:{missingWork:missingAvailable,assets:assetsAvailable}};
 }
 export async function workSave(a:WorkActor,body:unknown){
  if(a.mustChangePassword)throw new PortalError(403,'Change your temporary password first.');
@@ -102,7 +119,7 @@ export async function workSave(a:WorkActor,body:unknown){
  admin(a);
  return db.transaction(async tx=>{
   if(input.action==='account'){
-   const b=z.object({employeeId:id,role:z.enum(['EMPLOYEE','MANAGER']),isActive:z.boolean(),password:z.string().min(12).max(72).optional()}).parse(v);
+   const b=z.object({employeeId:id,role:z.enum(['EMPLOYEE','MANAGER','PRODUCTION_OPERATOR']),isActive:z.boolean(),password:z.string().min(12).max(72).optional()}).parse(v);
    await workEmployee(a,b.employeeId);
    const [old]=await tx.query('SELECT * FROM "WorkAccount" WHERE "employeeId"=$1 FOR UPDATE',[b.employeeId]);
    if(!old)throw new PortalError(404,'Employee account missing.');

@@ -125,23 +125,7 @@ export default function ClinicalWorkQueue() {
           {data.actor.role}
         </p>
       )}
-      <nav style={{
-        display: "flex",
-        gap: 12,
-        flexWrap: "wrap",
-        margin: "20px 0"
-      }}>
-        <a href="/clinical" style={button}>
-          Clinical Workspace
-        </a>
-        {data?.actor.role === "ADMIN" && (
-          <a href="/clinical/admin" style={{
-            ...button,
-            background: navy
-          }}>
-            Clinical Administration
-          </a>
-        )}
+      <nav className="clinical-queue-toolbar" aria-label="Review queue actions">
         <button
           type="button"
           onClick={() => void load()}

@@ -19,6 +19,11 @@ export const patientSchema = z.object({
 
 export const patientCreateSchema = patientSchema.omit({ patientCode: true }).extend({ email: requiredEmail, confirmDuplicate: z.boolean().optional().default(false) });
 export const patientEditSchema = patientSchema.extend({ revision: z.number().int().min(0), confirmDuplicate: z.boolean().optional().default(false) });
+export const patientArchiveSchema = z.object({
+  action: z.enum(["ARCHIVE", "RESTORE"]),
+  revision: z.number().int().min(0),
+  confirmDuplicate: z.boolean().optional().default(false),
+}).strict();
 export const normalizeName = (value: string) => value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 
 export function patientData(input: z.output<typeof patientSchema>) {

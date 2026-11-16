@@ -68,12 +68,12 @@ export default async function OwnerAnalyticsPage() {
   }
 
   const modules = [
-    ["Cash & Finance", "Not Connected"],
-    ["Clinical Cases", "Not Connected"],
-    ["Production", "Not Connected"],
-    ["Quality Control", "Not Connected"],
-    ["Stock & Inventory", "Not Connected"],
-    ["Machines", "Not Connected"]
+    ["Cash & Finance", "Integration not configured"],
+    ["Clinical Cases", "Integration not configured"],
+    ["Production", "Integration not configured"],
+    ["Quality Control", "Integration not configured"],
+    ["Stock & Inventory", "Integration not configured"],
+    ["Machines", "Integration not configured"]
   ];
 
   const cardStyle = {
@@ -85,26 +85,28 @@ export default async function OwnerAnalyticsPage() {
 
   return (
     <main style={{
-      maxWidth: 1240,
+      width: "min(1500px, calc(100% - 48px))",
+      maxWidth: "none",
       margin: "30px auto",
-      padding: "0 24px 60px",
+      padding: "0 0 60px",
       color: navy
     }}>
       <header style={{
-        padding: 30,
+        padding: "24px 30px",
         borderRadius: 15,
         background: navy,
-        color: "#ffffff"
+        color: "#ffffff",
+        minHeight: 0
       }}>
-        <h1 style={{ color: "#ffffff", margin: 0 }}>
+        <h1 style={{ color: "#ffffff", margin: 0, fontSize: "clamp(28px, 3vw, 42px)", lineHeight: 1.15 }}>
           Owner Command Center
         </h1>
-        <p style={{ color: "#ffffff" }}>
+        <p style={{ color: "#d5e5ed", marginTop: 8 }}>
           Allen Aligner — Python Executive Intelligence
         </p>
       </header>
 
-      <h2 style={{ marginTop: 30 }}>
+      <h2 style={{ marginTop: 30, fontSize: "clamp(24px, 2.3vw, 32px)" }}>
         Live Employee Intelligence
       </h2>
 
@@ -171,7 +173,7 @@ export default async function OwnerAnalyticsPage() {
       }}>
         {modules.map(([name, status]) => (
           <article key={name} style={cardStyle}>
-            <h3 style={{ fontSize: 17, color: navy }}>
+            <h3 style={{ fontSize: 17, color: navy, margin: "0 0 8px" }}>
               {name}
             </h3>
             <p style={{

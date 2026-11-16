@@ -173,3 +173,23 @@ export async function updateEmployee(id: string, body: unknown, user: EmployeeHR
     });
   } catch (error) { return duplicate(error); }
 }
+
+export async function changeEmployeeStatus(id: string, body: unknown, user: EmployeeHR, database: Database = db): Promise<EmployeeRecord> {
+  role(user, true);
+  if (user.role !== 'HR_ADMIN') throw new PortalError(403, 'Only an HR administrator can change employment status.');
+  const input = validation(z.object({ status: z.enum(['ACTIVE', 'INACTIVE']) }).strict().safeParse(body));
+  await hrRequireEmployee(user, id);
+  return database.transaction(async tx => {
+    await tx.query('SELECT pg_advisory_xact_lock(204021)');
+    const [old] = await tx.query(`SELECT ${safeColumns} FROM "Employee" e WHERE e.id=$1 FOR UPDATE`, [id]);
+    if (!old) throw new PortalError(404, 'Employee not found.');
+    if (old.status === input.status) return saved(old);
+    const open = await tx.query(`SELECT id FROM "EmployeeOffboarding" WHERE "employeeId"=$1 AND status NOT IN ('COMPLETED','CANCELLED')`, [id]);
+    if (open.length || old.status === 'OFFBOARDING') throw new PortalError(409, 'Change this status through the employee offboarding workflow.');
+    await tx.query(`INSERT INTO "EmployeeProfileHistory"("employeeId","oldFullName","newFullName","oldEmail","newEmail","oldStatus","newStatus","changedBy","changedByHrUserId") VALUES($1,$2,$2,$3,$3,$4,$5,$6::text,$6::uuid)`, [id, old.fullName, old.email ?? '', old.status, input.status, user.id]);
+    await tx.query(`UPDATE "Employee" SET status=$2,"updatedAt"=now() WHERE id=$1`, [id, input.status]);
+    const [employee] = await tx.query(`SELECT ${safeColumns} FROM "Employee" e WHERE e.id=$1`, [id]);
+    await employeeAudit(tx, user, 'employee.status.change', id, { before: saved(old), after: saved(employee) });
+    return saved(employee);
+  });
+}

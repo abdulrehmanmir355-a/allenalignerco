@@ -4,6 +4,7 @@ import { registrationMessages } from "@/app/lib/clinical-registration/messages";
 import { registrationStatus, submitClinicalRegistration } from "@/app/lib/clinical-registration/employee-registration";
 import { digest, sameOrigin, throttle } from "@/app/lib/portal-auth";
 import { failure, jsonBody, PortalError } from "@/app/lib/portal-http";
+import { workSessionActor } from "@/app/lib/work-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     if (!sameOrigin(request)) throw new PortalError(403, "Invalid request origin.");
     const body = await jsonBody(request);
     if (!await throttle("clinical-registration:global", 60)) throw new PortalError(429, "Too many attempts. Try again later.");
+    if (body?.action === "register" && await workSessionActor(request).catch(() => null)) throw new PortalError(409, "Sign out of the current Employee or Clinical account before submitting another registration.");
     if (body?.action === "status") {
       const parsed = statusSchema.safeParse(body);
       if (!parsed.success) throw new PortalError(400, "Enter the Employee ID and official email.");

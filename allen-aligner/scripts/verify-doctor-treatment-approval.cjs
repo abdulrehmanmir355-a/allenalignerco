@@ -10,7 +10,7 @@ const backup=path.join(backupDir,`module15-${new Date().toISOString().replace(/[
 const env={...process.env,PGHOST:url.hostname,PGPORT:url.port||'5432',PGUSER:decodeURIComponent(url.username),PGPASSWORD:decodeURIComponent(url.password),PGDATABASE:'allen_aligner'};
 const bin=process.env.PG_BIN||'C:/Program Files/PostgreSQL/17/bin';
 function pg(name,args){const r=spawnSync(path.join(bin,name+'.exe'),args,{env,encoding:'utf8',windowsHide:true});if(r.status!==0)throw Error(name+': '+(r.stderr||r.error?.message));return r.stdout;}
-const migration=fs.readFileSync(path.join(root,'database/migrations/20261028120000_doctor_treatment_approval.sql'),'utf8');
+const migrations=['20261028120000_doctor_treatment_approval.sql','20261028180000_independent_clinical_review.sql','20261028193000_reviewer_email_access.sql','20261029140000_reviewer_independent_identity.sql'];
 let checks=0,token='',admin,sql,database;
 function check(ok,label){assert.ok(ok,label);checks++;console.log('PASS '+label);}
 const cache=new Map();
@@ -22,6 +22,7 @@ function load(file){
   if(spec==='next/headers')return {cookies:async()=>({get:()=>token?{value:token}:undefined})};
   if(spec==='next/navigation')return {redirect:()=>{throw Error('Unexpected redirect')}};
   if(spec==='./hr-management')return {audit:async(tx,actor,scope,action,record)=>tx.query('INSERT INTO "ManagementAudit"("actorId",scope,action,"recordId") VALUES($1,$2,$3,$4)',[actor,scope,action,record])};
+  if(spec.startsWith('@/')){const next=path.resolve(root,spec.slice(2));if(fs.existsSync(next+'.ts'))return load(next+'.ts');}
   if(spec.startsWith('.')){const next=path.resolve(path.dirname(file),spec);if(fs.existsSync(next+'.ts'))return load(next+'.ts');}
   return Module.prototype.require.call(this,spec);
  };
@@ -33,13 +34,13 @@ async function run(){
  admin=new Client({connectionString:url.toString()});await admin.connect();await admin.query(`CREATE DATABASE "${testName}"`);
  pg('pg_restore',['--no-owner','--no-privileges','--dbname',testName,backup]);
  const testUrl=new URL(url);testUrl.pathname='/'+testName;process.env.DATABASE_URL=testUrl.toString();
- sql=new Client({connectionString:testUrl.toString()});await sql.connect();await sql.query(migration);await sql.query(migration);check(true,'additive migration applies twice on isolated copy');
+ sql=new Client({connectionString:testUrl.toString()});await sql.connect();for(const migration of migrations)await sql.query(fs.readFileSync(path.join(root,'database/migrations',migration),'utf8'));check(true,'approval and independent-review migrations apply on isolated copy');
  const q=async(s,v=[])=>(await sql.query(s,v)).rows;
  const before=await q(`SELECT (SELECT count(*)::int FROM "Patient") patients,(SELECT count(*)::int FROM "Doctor") doctors`);
  // Qualified-recipient fixtures exist only in this disposable database. Live access is unchanged.
  const staff=randomUUID(),unassigned=randomUUID();
- for(const employee of [staff,unassigned])await q(`INSERT INTO "Employee"(id,"employeeCode","fullName",department,designation,"joinedOn") VALUES($1,'','Isolated clinical QA','QA','Clinical test reviewer','2026-01-01')`,[employee]);
- await q(`UPDATE "WorkAccount" SET "passwordHash"=$1,"isActive"=true,"mustChangePassword"=false,"clinicalRole"=CASE WHEN "employeeId"=$2 THEN 'LEAD' ELSE 'REVIEWER' END WHERE "employeeId"=ANY($3::text[])`,['$2b$04$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu123456',staff,[staff,unassigned]]);
+ const staffAccounts={};
+ for(const employee of [staff,unassigned]){const [record]=await q(`INSERT INTO "Employee"(id,"employeeCode","fullName",department,designation,"joinedOn") VALUES($1,'','Isolated clinical QA','QA','Clinical test reviewer','2026-01-01') RETURNING id`,[employee]);const [account]=await q(`UPDATE "WorkAccount" SET "passwordHash"=$2,"isActive"=true,"mustChangePassword"=false,"clinicalRole"=CASE WHEN "employeeId"=$3 THEN 'LEAD' ELSE 'REVIEWER' END WHERE "employeeId"=$1 RETURNING id`,[record.id,'$2b$04$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu123456',staff]);staffAccounts[employee]=account.id;}
  const clinic=randomUUID(),otherClinic=randomUUID(),doctor=randomUUID(),wrong=randomUUID(),foreign=randomUUID();
  await q('INSERT INTO "Clinic"(id,name) VALUES($1,\'Isolated approval QA\'),($2,\'Isolated other clinic\')',[clinic,otherClinic]);
  for(const [id,c]of [[doctor,clinic],[wrong,clinic],[foreign,otherClinic]])await q(`INSERT INTO "Doctor"(id,"fullName",email,"passwordHash","clinicId","isVerified","updatedAt","registrationNumber") VALUES($1,'Isolated approval QA',$2,$3,$4,true,now(),$1)`,[id,id+'@example.invalid','$2b$04$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu123456',c]);
@@ -50,8 +51,8 @@ async function run(){
  async function fixture({approved=true,files=true}={}){
   const caseId=randomUUID(),planId=randomUUID();await q(`INSERT INTO "PortalCase"(id,"doctorId","clinicId","patientReference",category,notes,"consentAt",status,"updatedAt") VALUES($1,$2,$3,$1,'QA','Isolated fixture',now(),'PLANNING',now())`,[caseId,doctor,clinic]);
   if(files)await q(`INSERT INTO "CaseFile"(id,"caseId",name,mime,size,data) VALUES($1,$2,'plan.pdf','application/pdf',8,$3)`,[randomUUID(),caseId,Buffer.from('%PDF-1.7')]);
-  await q(`INSERT INTO "TreatmentPlan"(id,"caseId",version,summary,"changeSummary") VALUES($1,$2,1,'Isolated written treatment plan','QA version')`,[planId,caseId]);
-  if(approved){await q(`UPDATE "ClinicalReview" SET status='APPROVED',"completedAt"=now() WHERE "planId"=$1`,[planId]);await q(`UPDATE "PortalCase" SET status='REVIEW' WHERE id=$1`,[caseId]);}
+  const preparer=staffAccounts[staff];await q(`WITH identity AS (SELECT set_config('allen.preparer_account',$3,true)) INSERT INTO "TreatmentPlan"(id,"caseId",version,summary,"changeSummary","createdById","createdByRole","preparedByAccountId","preparedByEmployeeId","preparedAt","authorName") SELECT $1,$2,1,'Isolated written treatment plan','QA version',$3::text,'LAB',$3::uuid,$4::text,now(),'Isolated QA preparer' FROM identity`,[planId,caseId,preparer,staff]);
+  if(approved){const checklist=Object.fromEntries(['completeness','records','consistency','movement','attachments','ipr','staging','concerns','information'].map(key=>[key,{result:'CONFIRMED',note:''}]));await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$2,true),set_config('allen.clinical_action','assign',true),set_config('allen.clinical_name','Isolated clinical lead',true)) UPDATE "ClinicalReview" SET "assignedTo"=$2::uuid WHERE "planId"=$1`,[planId,staffAccounts[staff]]);await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$2,true),set_config('allen.clinical_action','start',true),set_config('allen.clinical_name','Isolated clinical reviewer',true)) UPDATE "ClinicalReview" SET status='IN_REVIEW',"startedAt"=now() WHERE "planId"=$1`,[planId,staffAccounts[unassigned]]);await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$3,true),set_config('allen.clinical_action','approve',true),set_config('allen.clinical_confirmed','true',true)) UPDATE "ClinicalReview" SET status='APPROVED',"completedAt"=now(),"decidedBy"=$3::uuid,checklist=$2::jsonb WHERE "planId"=$1`,[planId,JSON.stringify(checklist),staffAccounts[unassigned]]);await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$2,true),set_config('allen.clinical_action','assign',true)) UPDATE "ClinicalReview" SET "assignedTo"=$2::uuid,status='PENDING',"completedAt"=NULL,"decidedBy"=NULL,checklist='{}'::jsonb WHERE "planId"=$1`,[planId,staffAccounts[staff]]);await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$2,true),set_config('allen.clinical_action','start',true)) UPDATE "ClinicalReview" SET status='IN_REVIEW',"startedAt"=now() WHERE "planId"=$1`,[planId,staffAccounts[staff]]);await q(`WITH actor AS (SELECT set_config('allen.clinical_actor',$2,true),set_config('allen.clinical_action','approve',true),set_config('allen.clinical_confirmed','true',true)) UPDATE "ClinicalReview" SET status='APPROVED',"completedAt"=now(),"decidedBy"=$2::uuid,checklist=$3::jsonb WHERE "planId"=$1`,[planId,staffAccounts[staff],JSON.stringify(checklist)]);await q(`UPDATE "PortalCase" SET status='REVIEW' WHERE id=$1`,[caseId]);}
   return {caseId,planId};
  }
  async function post(f,action='approve',who=doctor,extra={}){

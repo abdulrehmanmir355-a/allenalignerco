@@ -13,10 +13,12 @@ export async function clinicalActor(request?:Request):Promise<ClinicalActor>{
  return row as ClinicalActor;
 }
 export function manageClinical(a:ClinicalActor){if(!['LEAD','ADMIN'].includes(a.role))throw new PortalError(403,'Clinical Lead or authorized administrator required.');}
-export async function clinicalCase(a:ClinicalActor,id:string,tx:Database=db,lock=false){
+export async function clinicalCase(a:ClinicalActor,id:string,tx:Database=db,lock=false,allowCaseAssignment=false){
  const [c]=await tx.query(`SELECT c.id,c."clinicId",c."patientReference",c."patientId",c."doctorId",c.status,c.revision,c.notes,c.category,c."createdAt",d."fullName" AS "doctorName",cl.name AS "clinicName",
+ (SELECT e."fullName" FROM "ClinicalCaseAssignment" ca JOIN "ClinicalIdentity" e ON e."accountId"=ca."assignedTo" WHERE ca."caseId"=c.id) AS "assignedToName",
+ (SELECT w."clinicalRole" FROM "ClinicalCaseAssignment" ca JOIN "WorkAccount" w ON w.id=ca."assignedTo" WHERE ca."caseId"=c.id) AS "assignedToRole",
  (SELECT min("createdAt") FROM "CaseEvent" WHERE "caseId"=c.id AND label ILIKE 'Case submitted%') AS "submittedAt"
  FROM "PortalCase" c JOIN "Doctor" d ON d.id=c."doctorId" JOIN "Clinic" cl ON cl.id=c."clinicId"
- WHERE c.id=$1 AND c.status<>'DRAFT' AND ($2<>'REVIEWER' OR EXISTS(SELECT 1 FROM "ClinicalReview" r JOIN "TreatmentPlan" p ON p.id=r."planId" WHERE p."caseId"=c.id AND r."assignedTo"=$3::uuid)) ${lock?'FOR UPDATE OF c':''}`,[id,a.role,a.id]);
+ WHERE c.id=$1 AND c.status<>'DRAFT' AND ($2<>'REVIEWER' OR EXISTS(SELECT 1 FROM "ClinicalReview" r JOIN "TreatmentPlan" p ON p.id=r."planId" WHERE p."caseId"=c.id AND r."assignedTo"=$3::uuid) OR ($4::boolean AND EXISTS(SELECT 1 FROM "ClinicalCaseAssignment" ca WHERE ca."caseId"=c.id AND ca."assignedTo"=$3::uuid))) ${lock?'FOR UPDATE OF c':''}`,[id,a.role,a.id,allowCaseAssignment]);
  if(!c)throw new PortalError(404,'Assigned case not found.');return c;
 }

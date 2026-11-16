@@ -5,7 +5,7 @@ import type {ProductionActivity,ProductionMetrics,ProductionRecord} from '@/app/
 
 const timeText=(value:string|null)=>value?`${value.slice(0,16).replace('T',' ')} UTC`:'—';
 
-export default function ProductionManager({records,metrics,activity}:{records:ProductionRecord[];metrics:ProductionMetrics;activity:ProductionActivity[]}){
+export default function ProductionManager({records,metrics,activity,releasedCaseIds=[],dispatchReadyCaseIds=[]}:{records:ProductionRecord[];metrics:ProductionMetrics;activity:ProductionActivity[];releasedCaseIds?:string[];dispatchReadyCaseIds?:string[]}){
  const router=useRouter();
  const [status,setStatus]=useState('ACTIVE'),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[failed,setFailed]=useState(false),[issued,setIssued]=useState<{caseId:string;token:string;label:string;expiresAt:string|null}|null>(null),[copied,setCopied]=useState(false);
  const shown=useMemo(()=>records.filter(record=>(status==='ALL'||(status==='ACTIVE'?!['COMPLETED'].includes(record.status):record.status===status))&&`${record.id} ${record.patientReference} ${record.category} ${record.doctorName} ${record.clinicName}`.toLowerCase().includes(query.trim().toLowerCase())),[records,status,query]);
@@ -46,6 +46,8 @@ export default function ProductionManager({records,metrics,activity}:{records:Pr
     <p><strong>Plan:</strong> {record.planVersion?`v${record.planVersion} · ${record.planDecision??'pending'}`:'No plan submitted'} · Clinical review: {record.clinicalReviewStatus??'not reviewed'}</p>
     {record.approvedAt&&<p><strong>Doctor approval:</strong> {timeText(record.approvedAt)}</p>}
     <p><strong>QC:</strong> {record.qcState??'Not enrolled'} · <strong>Treatment:</strong> {record.careStage??'Not enrolled'}</p>
+    {record.status==='IN_PRODUCTION'&&<p className={dispatchReadyCaseIds.includes(record.id)?'production-dispatch-ready':'production-dispatch-blocked'}><strong>Module 19 dispatch:</strong> {dispatchReadyCaseIds.includes(record.id)?'Ready · Module 18 released and current approved-plan QC passed':!releasedCaseIds.includes(record.id)?'Waiting for Module 18 manufacturing quality release':`Blocked · case QC must PASS on plan v${record.planVersion??'—'} before dispatch`}</p>}
+    {record.status==='SHIPPED'&&<p className="production-doctor-handoff"><strong>Module 20 doctor handoff:</strong> {record.careStage==='NOT_STARTED'?'Awaiting doctor to start treatment':record.careStage?record.careStage.replaceAll('_',' ').toLowerCase():'Shipped · doctor handoff status not enrolled'}</p>}
     <p><strong>Lab access:</strong> {record.labLabel?`${record.labLabel} · ${record.labAccessActive?'active':'expired'} · expires ${timeText(record.labExpiresAt)}`:'Not assigned'}</p>
     <details><summary>Manage case laboratory access</summary>
      {record.status!=='COMPLETED'&&<form onSubmit={event=>grant(event,record)}><fieldset disabled={busy}><div className="form-grid"><label>Laboratory / operator label<input name="label" defaultValue={record.labLabel??'Specialist lab'} minLength={2} maxLength={120} required/></label><label>Grant duration<select name="expiresInHours" defaultValue="168"><option value="24">24 hours</option><option value="168">7 days</option><option value="720">30 days</option></select></label></div><button className="button" disabled={busy}>{record.labAccessActive?'Rotate access token':'Issue case access'}</button></fieldset></form>}

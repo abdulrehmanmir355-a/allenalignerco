@@ -27,7 +27,7 @@ export async function caseTimeline(id: string, viewer: TimelineViewer) {
   // Scope every data source through the authorized parent, in one database snapshot.
   const rows = await db.query(`WITH c AS (
     SELECT id,"clinicId","patientReference",status,revision,"createdAt",
-      to_jsonb("PortalCase")->>'qcState' AS "qcState",to_jsonb("PortalCase")->>'qcPlanId' AS "qcPlanId",to_jsonb("PortalCase")->>'careStage' AS "careStage"
+      to_jsonb("PortalCase")->>'qcState' AS "qcState",to_jsonb("PortalCase")->>'qcPlanId' AS "qcPlanId",to_jsonb("PortalCase")->>'careStage' AS "careStage",to_jsonb("PortalCase")->>'caseClosedAt' AS "caseClosedAt"
     FROM "PortalCase" WHERE id=$1 AND "clinicId"=$2 AND ($3::text IS NULL OR "doctorId"=$3)
   ), entries AS (
     SELECT 'case:'||id AS key,'CASE' AS category,'Case draft created' AS title,"createdAt" AS at,
@@ -59,5 +59,5 @@ export async function caseTimeline(id: string, viewer: TimelineViewer) {
       action: detail?.action ?? r.action, fromStatus: detail?.fromStatus ?? null, status: detail?.status ?? null,
       notes: viewer.kind === 'doctor' ? detail?.notes ?? r.notes ?? null : null, workflow: detail?.workflow ?? null };
   });
-  return { case: { id: rows[0].id, patientReference: rows[0].patientReference, status: rows[0].status as CaseStatus, revision: rows[0].revision, workflow: rows[0].careStage ? { qcState: String(rows[0].qcState), qcPlanId: rows[0].qcPlanId as string | null, careStage: String(rows[0].careStage) } : null }, entries, visibility: viewer.kind === 'clinic' ? 'activity_metadata' : 'assigned_doctor' };
+  return { case: { id: rows[0].id, patientReference: rows[0].patientReference, status: rows[0].status as CaseStatus, revision: rows[0].revision, workflow: rows[0].careStage ? { qcState: String(rows[0].qcState), qcPlanId: rows[0].qcPlanId as string | null, careStage: String(rows[0].careStage), caseClosedAt: rows[0].caseClosedAt ? String(rows[0].caseClosedAt) : null } : null }, entries, visibility: viewer.kind === 'clinic' ? 'activity_metadata' : 'assigned_doctor' };
 }

@@ -1,5 +1,5 @@
 import { currentHR } from '../../../../lib/hr-auth';
-import { employeeDetail, updateEmployee } from '../../../../lib/employee-service';
+import { changeEmployeeStatus, employeeDetail, updateEmployee } from '../../../../lib/employee-service';
 import { sameOrigin } from '../../../../lib/portal-auth';
 import { failure, jsonBody, PortalError } from '../../../../lib/portal-http';
 
@@ -22,6 +22,9 @@ export async function PATCH(request: Request, context: Context) {
     const hr = await currentHR();
     if (!hr) throw new PortalError(401, 'HR login required.');
     const { id } = await context.params;
-    return Response.json({ employee: await updateEmployee(id, await jsonBody(request), hr) }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const body = await jsonBody(request);
+    const statusOnly = body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 1 && 'status' in body;
+    const employee = statusOnly ? await changeEmployeeStatus(id, body, hr) : await updateEmployee(id, body, hr);
+    return Response.json({ employee }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return failure(error); }
 }

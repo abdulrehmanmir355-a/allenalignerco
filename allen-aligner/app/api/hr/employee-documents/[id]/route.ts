@@ -64,7 +64,7 @@ export async function GET(
 
     const key = rows[0].storageKey;
 
-    if (!/^[0-9a-f-]{36}\.(pdf|jpg|png)$/i.test(key)) {
+    if (!/^[0-9a-f-]{36}\.(pdf|jpg|png|doc|docx|xlsx)$/i.test(key)) {
       return Response.json(
         { error: "Invalid stored file reference" },
         { status: 500 }

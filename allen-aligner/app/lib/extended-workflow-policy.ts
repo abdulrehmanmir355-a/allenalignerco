@@ -5,7 +5,7 @@ export const qcStates = ['PENDING', 'PASSED', 'FAILED', 'NOT_RECORDED'] as const
 export const careStages = ['NOT_STARTED', 'ACTIVE', 'REFINEMENT', 'TREATMENT_COMPLETED', 'RETENTION', 'RETENTION_COMPLETED'] as const;
 export type QCState = typeof qcStates[number];
 export type CareStage = typeof careStages[number];
-export const workflowActions = ['enable', 'start_treatment', 'progress', 'request_refinement', 'resume_treatment', 'complete_treatment', 'start_retention', 'retention_review', 'complete_retention', 'qc_pass', 'qc_fail'] as const;
+export const workflowActions = ['enable', 'start_treatment', 'progress', 'request_refinement', 'resume_treatment', 'complete_treatment', 'start_retention', 'retention_review', 'complete_retention', 'close_case', 'qc_pass', 'qc_fail'] as const;
 export type WorkflowAction = typeof workflowActions[number];
 export const qcLabels = {
   caseAndPlan: 'Case and approved plan identity verified',
@@ -25,7 +25,7 @@ export const workflowActionSchema = z.object({
 export type WorkflowInput = z.infer<typeof workflowActionSchema>;
 export type WorkflowState = {
   status: CaseStatus; qcState: QCState | null; qcPlanId: string | null; careStage: CareStage | null;
-  latestPlanId: string | null; clinicalApproved: boolean; doctorApproved: boolean;
+  latestPlanId: string | null; clinicalApproved: boolean; doctorApproved: boolean; caseClosedAt?: string | null; caseClosureEnabled?: boolean;
 };
 export type WorkflowResult = Pick<WorkflowState, 'status' | 'qcState' | 'qcPlanId' | 'careStage'>;
 export class WorkflowRuleError extends Error {
@@ -42,6 +42,7 @@ export function managedLabProblem(s: WorkflowState, next: CaseStatus): string | 
 }
 export function transitionWorkflow(role: string, s: WorkflowState, action: WorkflowAction): WorkflowResult {
   if ((action.startsWith('qc_') && role !== 'LAB') || (!action.startsWith('qc_') && role !== 'DOCTOR')) throw new WorkflowRuleError(403, 'This action is not permitted for your role.');
+  if (s.caseClosedAt && action !== 'close_case') return conflict('This case is closed. Its lifecycle is read-only.');
   const next: WorkflowResult = { status: s.status, qcState: s.qcState, qcPlanId: s.qcPlanId, careStage: s.careStage };
   if (action === 'enable') {
     if (s.careStage || s.qcState) return conflict('This case already uses the extended workflow.');
@@ -74,6 +75,11 @@ export function transitionWorkflow(role: string, s: WorkflowState, action: Workf
   if (action === 'start_retention') {
     if (s.careStage !== 'TREATMENT_COMPLETED' || s.status !== 'COMPLETED') return conflict('Complete treatment before starting retention.');
     return { ...next, careStage: 'RETENTION' };
+  }
+  if (action === 'close_case') {
+    if (!s.caseClosureEnabled) return conflict('Case closure requires the approved closure database update.');
+    if (s.status !== 'COMPLETED' || s.careStage !== 'RETENTION_COMPLETED' || s.caseClosedAt) return conflict('Complete treatment and retention follow-up before closing this case.');
+    return next;
   }
   if (action === 'retention_review' || action === 'complete_retention') {
     if (s.careStage !== 'RETENTION' || s.status !== 'COMPLETED') return conflict('Retention must be active.');

@@ -1,15 +1,36 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import PortalForm from "../../../components/portal-form";
 import { requireDoctor } from "../../../lib/portal-auth";
 import { db } from "../../../lib/database";
-export default async function NewCase({ searchParams }: { searchParams: Promise<{ patientId?: string }> }) {
+import NewCaseWizard from "./wizard";
+import { decodeCaseIntake, decodeRecordFilename } from "../../../lib/case-intake";
+
+export const dynamic = "force-dynamic";
+
+export default async function NewCase({ searchParams }: { searchParams: Promise<{ caseId?: string; patientId?: string }> }) {
   const doctor = await requireDoctor();
-  const { patientId } = await searchParams;
-  const patient = patientId ? await db.patient.findFirst({ where: { id: patientId, clinicId: doctor.clinicId!, archivedAt: null }, select: { id: true, patientCode: true, fullName: true } }) : null;
-  if (patientId && !patient) notFound();
-  return <><Link href="/doctor-dashboard/cases">← All cases</Link><div className="page-heading"><div><h1>Start a case.</h1><p>Create a private draft, attach records, then submit to the laboratory.</p></div></div><section className="panel padded" style={{ width: "100%", maxWidth: 900, boxSizing: "border-box" }}><PortalForm action="/api/portal/cases" label="Create private draft">
-    {patient ? <><p>Patient: {patient.fullName} ({patient.patientCode})</p><input type="hidden" name="patientId" value={patient.id} /><input type="hidden" name="patientReference" value={patient.patientCode} /></> : <><Link href="/clinic/patients">Choose a registered patient</Link><label>Patient reference<input name="patientReference" required minLength={2} maxLength={100} placeholder="Your clinic's patient reference" /></label></>}
-    <label>Case type<select name="category"><option>Initial case</option><option>Follow-up</option><option>Refinement</option></select></label><label>Notes<textarea name="notes" maxLength={5000} rows={5} /></label><label className="checkbox"><input type="checkbox" name="consent" value="yes" required />I confirm authorization to share these records with the assigned laboratory.</label>
-  </PortalForm></section></>;
+  const { caseId, patientId: requestedPatientId } = await searchParams;
+  const [patients, clinicDoctors] = await Promise.all([
+    db.patient.findMany({
+      where: { clinicId: doctor.clinicId!, archivedAt: null },
+      select: { id: true, patientCode: true, fullName: true, dateOfBirth: true },
+      orderBy: [{ fullName: "asc" }, { patientCode: "asc" }],
+      take: 500,
+    }),
+    db.doctor.findMany({ where: { clinicId: doctor.clinicId!, isVerified: true }, select: { fullName: true }, take: 500 }),
+  ]);
+  const draft = caseId ? await db.portalCase.findFirst({ where: { id: caseId, doctorId: doctor.id, clinicId: doctor.clinicId!, status: "DRAFT" }, include: { files: { select: { name: true } }, largeFiles: { select: { originalName: true } } } }) : null;
+  const draftPatient = draft?.patientId && !patients.some(p => p.id === draft.patientId)
+    ? await db.patient.findFirst({ where: { id: draft.patientId, clinicId: doctor.clinicId!, archivedAt: null }, select: { id: true, patientCode: true, fullName: true, dateOfBirth: true } })
+    : null;
+  const patient = draft?.patientId ? patients.find(p => p.id === draft.patientId) ?? draftPatient ?? undefined : undefined;
+  const requestedPatient = requestedPatientId && !patients.some(p => p.id === requestedPatientId)
+    ? await db.patient.findFirst({ where: { id: requestedPatientId, clinicId: doctor.clinicId!, archivedAt: null }, select: { id: true, patientCode: true, fullName: true, dateOfBirth: true } })
+    : null;
+  const availablePatients = [...new Map([...patients, ...(draftPatient ? [draftPatient] : []), ...(requestedPatient ? [requestedPatient] : [])].map(p => [p.id, p])).values()].sort((a, b) => a.fullName.localeCompare(b.fullName) || a.patientCode.localeCompare(b.patientCode));
+  const decoded = draft ? decodeCaseIntake(draft.notes) : null;
+  const records: Record<string, number> = {};
+  for (const file of [...(draft?.files.map(f => f.name) ?? []), ...(draft?.largeFiles.map(f => f.originalName) ?? [])]) {
+    const type = decodeRecordFilename(file).recordType;
+    if (type) records[type] = (records[type] || 0) + 1;
+  }
+  return <NewCaseWizard patients={availablePatients.map(patient => ({ ...patient, dateOfBirth: patient.dateOfBirth?.toISOString().slice(0, 10) ?? null }))} verifiedDoctorNames={clinicDoctors.map(item => item.fullName)} uploadsEnabled={process.env.ENABLE_PRIVATE_UPLOADS === "true"} initialPatientId={requestedPatient?.id ?? (requestedPatientId && patients.some(p => p.id === requestedPatientId) ? requestedPatientId : "")} initialDraft={draft && decoded?.intake && patient ? { id: draft.id, patientId: patient.id, category: draft.category, notes: decoded.notes, intake: decoded.intake, records } : null} />;
 }

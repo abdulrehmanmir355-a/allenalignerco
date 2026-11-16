@@ -1,14 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { commonQuestions, resourceItems } from "../lib/site-content";
 
 export function Questions({ compact = false }: { compact?: boolean }) {
   const [query, setQuery] = useState("");
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+  const id = useId();
   const items = (compact ? commonQuestions.slice(0, 4) : commonQuestions).filter(item => `${item.question} ${item.answer}`.toLowerCase().includes(query.toLowerCase()));
   return <div className="question-list">
     {!compact && <label className="search-field">Search common questions<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Try uploads, verification or plan review" /></label>}
-    {items.map(item => <details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}
+    {items.map((item, index) => {
+      const answerId = `${id}-answer-${index}`;
+      const isOpen = openQuestion === item.question;
+      return <article className={`question-item${isOpen ? " is-open" : ""}`} key={item.question}>
+        <h3><button className="question-trigger" type="button" aria-expanded={isOpen} aria-controls={answerId} onClick={() => setOpenQuestion(isOpen ? null : item.question)}>
+          <span>{item.question}</span><span className="question-toggle" aria-hidden="true">+</span>
+        </button></h3>
+        <div className="question-answer" id={answerId} aria-hidden={!isOpen}><div><p>{item.answer}</p></div></div>
+      </article>;
+    })}
     {!items.length && <p role="status" className="notice">No matching questions. Try a broader search or visit Contact and support.</p>}
   </div>;
 }

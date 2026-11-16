@@ -8,6 +8,7 @@ type Result = {
 type Bridge = {
   health: Result;
   kpis: Result;
+  manufacturingWorkflow: Result;
   checkedAt: string;
 };
 function readMetric(
@@ -141,8 +142,51 @@ export default function OwnerPythonBridge() {
               Last checked: {data.checkedAt}
             </p>
           </section>
+          <section style={{ ...card, marginTop: 20 }} aria-labelledby="workflow-audit-heading">
+            <h2 id="workflow-audit-heading">Doctor approval → manufacturing check</h2>
+            <p>Read-only check of exact plan version, doctor approval evidence, independent review, manufacturing gates and audit records.</p>
+            {!data.manufacturingWorkflow.ok ? (
+              <p role="status">{data.manufacturingWorkflow.message || "Workflow audit unavailable."}</p>
+            ) : (
+              <WorkflowAuditResult value={data.manufacturingWorkflow.data} />
+            )}
+          </section>
         </>
       )}
     </main>
+  );
+}
+
+function WorkflowAuditResult({ value }: { value: unknown }) {
+  if (!value || typeof value !== "object") return <p role="status">No workflow audit data.</p>;
+  const report = value as {
+    status?: string;
+    checked_at?: string;
+    missing_tables?: string[];
+    orders_by_status?: Record<string, number>;
+    summary?: { orders_checked?: number; issue_count?: number; current_approvals_without_order?: number; queued_costing_pending?: number };
+    findings?: Array<{ order_number?: string; plan_version?: number; check?: string; message?: string }>;
+  };
+  const status = report.status || "UNAVAILABLE";
+  const tone = status === "PASS" ? "#155b47" : status === "SETUP_REQUIRED" ? "#805500" : "#922d2d";
+  return (
+    <div>
+      <p style={{ color: tone, fontWeight: 800 }} role="status">
+        {status === "PASS" ? "Workflow checks passed" : status === "SETUP_REQUIRED" ? "Database setup required" : "Workflow issues found"}
+      </p>
+      {report.summary && <p>Orders checked: {report.summary.orders_checked ?? 0} · Findings: {report.summary.issue_count ?? 0} · Approved cases without an order: {report.summary.current_approvals_without_order ?? 0} · Queued orders awaiting costing: {report.summary.queued_costing_pending ?? 0}</p>}
+      {report.missing_tables?.length ? <p>Missing setup: {report.missing_tables.join(", ")}</p> : null}
+      {report.orders_by_status && Object.keys(report.orders_by_status).length > 0 && (
+        <ul aria-label="Manufacturing orders by status">
+          {Object.entries(report.orders_by_status).map(([stage, count]) => <li key={stage}>{stage.replaceAll("_", " ")}: {count}</li>)}
+        </ul>
+      )}
+      {report.findings?.length ? (
+        <ul aria-label="Workflow audit findings">
+          {report.findings.map((finding, index) => <li key={`${finding.order_number}-${finding.check}-${index}`}><strong>{finding.order_number || "Order"} · Plan v{finding.plan_version ?? "—"} · {finding.check?.replaceAll("_", " ")}</strong>: {finding.message}</li>)}
+        </ul>
+      ) : status === "PASS" ? <p>No approval-to-manufacturing inconsistencies were found.</p> : null}
+      {report.checked_at && <small>Checked at {new Date(report.checked_at).toLocaleString()}</small>}
+    </div>
   );
 }

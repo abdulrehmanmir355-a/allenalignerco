@@ -36,12 +36,12 @@ export async function hrRows(section:HRSection,user:HRIdentity){
  const queries:Record<HRSection,string>={
  departments:'SELECT id,name FROM "HRDepartment" ORDER BY name',designations:'SELECT id,name FROM "HRDesignation" ORDER BY name',
  employees:'SELECT id,"employeeCode","fullName",email,department,designation,"joinedOn",status FROM "Employee" ORDER BY "createdAt" DESC LIMIT 500',
- attendance:'SELECT a.*,e."fullName" FROM "HRAttendance" a JOIN "Employee" e ON e.id=a."employeeId" ORDER BY day DESC LIMIT 500',
- leave:'SELECT l.*,e."fullName" FROM "HRLeave" l JOIN "Employee" e ON e.id=l."employeeId" ORDER BY "createdAt" DESC LIMIT 500',
- onboarding:'SELECT o.*,e."fullName" FROM "HROnboarding" o JOIN "Employee" e ON e.id=o."employeeId" ORDER BY e."fullName" LIMIT 500',
- offboarding:'SELECT o.*,e."fullName" FROM "EmployeeOffboarding" o JOIN "Employee" e ON e.id=o."employeeId" ORDER BY o."createdAt" DESC LIMIT 500',
- assets:'SELECT a.*,e."fullName" FROM "OffboardingAsset" a JOIN "EmployeeOffboarding" o ON o.id=a."offboardingId" JOIN "Employee" e ON e.id=o."employeeId" LIMIT 500',
- clearance:'SELECT a.*,e."fullName" FROM "OffboardingClearance" a JOIN "EmployeeOffboarding" o ON o.id=a."offboardingId" JOIN "Employee" e ON e.id=o."employeeId" LIMIT 500',
+ attendance:'SELECT a.*,e."fullName",e."employeeCode" FROM "HRAttendance" a JOIN "Employee" e ON e.id=a."employeeId" ORDER BY a.day DESC LIMIT 500',
+ leave:'SELECT l.*,e."fullName",e."employeeCode" FROM "HRLeave" l JOIN "Employee" e ON e.id=l."employeeId" ORDER BY l."createdAt" DESC LIMIT 500',
+ onboarding:'SELECT o.*,e."fullName",e."employeeCode" FROM "HROnboarding" o JOIN "Employee" e ON e.id=o."employeeId" ORDER BY e."fullName" LIMIT 500',
+ offboarding:'SELECT o.*,e."fullName",e."employeeCode" FROM "EmployeeOffboarding" o JOIN "Employee" e ON e.id=o."employeeId" ORDER BY o."createdAt" DESC LIMIT 500',
+ assets:'SELECT a.*,e."fullName",e."employeeCode" FROM "OffboardingAsset" a JOIN "EmployeeOffboarding" o ON o.id=a."offboardingId" JOIN "Employee" e ON e.id=o."employeeId" LIMIT 500',
+ clearance:'SELECT a.*,e."fullName",e."employeeCode" FROM "OffboardingClearance" a JOIN "EmployeeOffboarding" o ON o.id=a."offboardingId" JOIN "Employee" e ON e.id=o."employeeId" LIMIT 500',
  users:'SELECT id,email,"fullName",role,"isActive" FROM "HRUser" ORDER BY email LIMIT 500',
  reports:`SELECT department,status,COUNT(*)::int AS employees FROM "Employee" GROUP BY department,status ORDER BY department,status`
  };const scope=hrScope(user);return db.query(scope.sql+queries[section],scope.args);

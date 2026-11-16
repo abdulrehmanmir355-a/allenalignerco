@@ -9,7 +9,7 @@ import type {CaseStatus} from './db-models';
 
 export type ProductionActor={id:string;email:string;role:string}|null;
 export type ProductionMetrics={planningQueue:number;readyForProduction:number;inProduction:number;awaitingCompletion:number;activeLabGrants:number;expiredLabGrants:number};
-export type ProductionRecord={id:string;patientReference:string;category:string;status:string;revision:number;doctorName:string;clinicName:string;planVersion:number|null;planDecision:string|null;approvedAt:string|null;clinicalReviewStatus:string|null;labLabel:string|null;labExpiresAt:string|null;labAccessActive:boolean;qcState:string|null;careStage:string|null;updatedAt:string};
+export type ProductionRecord={id:string;patientReference:string;category:string;status:string;revision:number;doctorName:string;clinicName:string;planId:string|null;planVersion:number|null;planDecision:string|null;approvedAt:string|null;clinicalReviewStatus:string|null;labLabel:string|null;labExpiresAt:string|null;labAccessActive:boolean;qcState:string|null;qcPlanId:string|null;careStage:string|null;updatedAt:string};
 export type ProductionActivity={id:string;action:string;caseId:string;detail:{label?:string;expiresAt?:string|null};createdAt:string;actorEmail:string|null};
 const iso=(value:unknown)=>value instanceof Date?value.toISOString():new Date(String(value)).toISOString();
 function requireProductionManager(actor:ProductionActor):asserts actor is NonNullable<ProductionActor>{
@@ -35,10 +35,10 @@ export async function productionDashboard(actor:ProductionActor,database:Databas
    FROM "PortalCase" c LEFT JOIN "LabAccess" la ON la."caseId"=c.id`),
   database.query(`SELECT c.id::text AS id,c."patientReference",c.category,c.status,c.revision,c."updatedAt",
     d."fullName" AS "doctorName",cl.name AS "clinicName",
-    p.version AS "planVersion",p.decision AS "planDecision",p."approvedAt",
+    p.id::text AS "planId",p.version AS "planVersion",p.decision AS "planDecision",p."approvedAt",
     r.status AS "clinicalReviewStatus",la.label AS "labLabel",la."expiresAt" AS "labExpiresAt",
     (la."expiresAt">now()) AS "labAccessActive",
-    to_jsonb(c)->>'qcState' AS "qcState",to_jsonb(c)->>'careStage' AS "careStage"
+    to_jsonb(c)->>'qcState' AS "qcState",to_jsonb(c)->>'qcPlanId' AS "qcPlanId",to_jsonb(c)->>'careStage' AS "careStage"
    FROM "PortalCase" c JOIN "Doctor" d ON d.id=c."doctorId" JOIN "Clinic" cl ON cl.id=c."clinicId"
    LEFT JOIN LATERAL (SELECT id,version,decision,"approvedAt" FROM "TreatmentPlan" WHERE "caseId"=c.id ORDER BY version DESC LIMIT 1) p ON true
    LEFT JOIN LATERAL (SELECT status FROM "ClinicalReview" WHERE "planId"=p.id ORDER BY "completedAt" DESC NULLS LAST LIMIT 1) r ON true
@@ -53,10 +53,10 @@ export async function productionDashboard(actor:ProductionActor,database:Databas
  const m=metricRows[0]??{};
  const records:ProductionRecord[]=cases.map(item=>({
   id:String(item.id),patientReference:String(item.patientReference),category:String(item.category),status:String(item.status),revision:Number(item.revision),
-  doctorName:String(item.doctorName),clinicName:String(item.clinicName),planVersion:item.planVersion===null?null:Number(item.planVersion),
+  doctorName:String(item.doctorName),clinicName:String(item.clinicName),planId:item.planId===null?null:String(item.planId),planVersion:item.planVersion===null?null:Number(item.planVersion),
   planDecision:item.planDecision===null?null:String(item.planDecision),approvedAt:item.approvedAt?iso(item.approvedAt):null,
   clinicalReviewStatus:item.clinicalReviewStatus===null?null:String(item.clinicalReviewStatus),labLabel:item.labLabel===null?null:String(item.labLabel),
-  labExpiresAt:item.labExpiresAt?iso(item.labExpiresAt):null,labAccessActive:item.labAccessActive===true,qcState:item.qcState===null?null:String(item.qcState),
+  labExpiresAt:item.labExpiresAt?iso(item.labExpiresAt):null,labAccessActive:item.labAccessActive===true,qcState:item.qcState===null?null:String(item.qcState),qcPlanId:item.qcPlanId===null?null:String(item.qcPlanId),
   careStage:item.careStage===null?null:String(item.careStage),updatedAt:iso(item.updatedAt),
  }));
  const recent:ProductionActivity[]=activity.map(item=>({

@@ -2,8 +2,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { db } from "./database";
-import { currentOwner, endOwnerSession, ensureOwnerHRAuditActor } from "./owner-auth";
-import { resolveHRAuthorizationActor } from "./owner-role-policy";
+import { currentOwner, endOwnerSession } from "./owner-auth";
 
 const COOKIE = "allen_hr_session";
 
@@ -12,6 +11,9 @@ function hash(value: string) {
 }
 
 export async function currentHR() {
+  // If legacy cookies contain more than one portal session, Owner takes
+  // precedence and cannot inherit or retain HR authority at the same time.
+  if (await currentOwner().catch(() => null)) return null;
   const token = (await cookies()).get(COOKIE)?.value;
   if (token && /^[a-f0-9]{64}$/.test(token)) {
     const rows = await db.query(
@@ -25,24 +27,12 @@ export async function currentHR() {
       [hash(token)]
     );
     if (rows[0]) {
-      return resolveHRAuthorizationActor(
-        rows[0] as { id: string; email: string; role: string },
-        null,
-        null
-      );
+      return rows[0] as { id: string; email: string; role: string };
     }
   }
 
-  // A logged-in Owner uses its separate Owner DB session. This inactive HRUser
-  // row exists solely for legacy HR audit foreign keys; it cannot authenticate.
-  const owner = await currentOwner().catch(() => null);
-  if (!owner) return null;
-  await ensureOwnerHRAuditActor(owner);
-  const [auditActor] = await db.query(
-    `SELECT id,email,role,"isActive" FROM "HRUser" WHERE id=$1 LIMIT 1`,
-    [owner.id]
-  ) as {id:string;email:string;role:string;isActive:boolean}[];
-  return resolveHRAuthorizationActor(null, owner, auditActor ?? null);
+  // Owner authentication is separate and never grants HR access.
+  return null;
 }
 
 export async function startHRSession(userId: string) {

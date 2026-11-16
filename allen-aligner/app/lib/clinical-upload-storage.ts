@@ -6,7 +6,10 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const CHUNK_SIZE = 8 * 1024 * 1024;
-export const MAX_FILE_SIZE = 1024 * 1024 * 1024;
+const configuredMaxFileSize = Number(process.env.MAX_CLINICAL_UPLOAD_BYTES);
+export const MAX_FILE_SIZE = Number.isSafeInteger(configuredMaxFileSize) && configuredMaxFileSize > 0
+  ? Math.min(configuredMaxFileSize, 1024 * 1024 * 1024)
+  : 1024 * 1024 * 1024;
 
 const ROOT = path.join(
   process.cwd(),

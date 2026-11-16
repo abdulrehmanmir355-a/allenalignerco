@@ -83,7 +83,9 @@ export async function POST(request: Request) {
         employee.id === owner.id ||
         (employee.email && owner.email && String(employee.email).toLowerCase() === owner.email.toLowerCase())
       ) {
-        throw new PortalError(403, "You cannot appoint or remove your own clinical access.");
+        if (input.action === "APPOINT") {
+          throw new PortalError(403, "The Owner account cannot receive clinical administrator access. Choose a different eligible employee.");
+        }
       }
 
       const appoint = input.action === "APPOINT";

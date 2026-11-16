@@ -1,8 +1,7 @@
 "use client";
 import styles from "./hr-overview.module.css";
 
-import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Summary = {
   employees: number;
@@ -12,38 +11,25 @@ type Summary = {
   settlements: number;
 };
 
-const actionStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: 48,
-  padding: "12px 20px",
-  borderRadius: 10,
-  border: "1px solid transparent",
-  background: "#087989",
-  color: "#ffffff",
-  fontSize: 14,
-  fontWeight: 700,
-  fontFamily: "inherit",
-  textDecoration: "none",
-  textAlign: "center",
-  cursor: "pointer",
-  boxSizing: "border-box"
-};
-
-export default function SummaryClient() {
+export default function SummaryClient({ canManage }: { canManage: boolean }) {
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(false);
+  const requestController = useRef<AbortController | null>(null);
 
   async function refresh() {
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/hr/offboarding/summary", {
         cache: "no-store",
-        credentials: "same-origin"
+        credentials: "same-origin",
+        signal: controller.signal
       });
 
       if (!res.ok) {
@@ -60,19 +46,25 @@ export default function SummaryClient() {
         throw new Error("Invalid dashboard response.");
       }
 
-      setData(result.summary);
+      if (!controller.signal.aborted && mounted.current) setData(result.summary);
     } catch (err) {
+      if (controller.signal.aborted || !mounted.current) return;
       setData(null);
       setError(
         err instanceof Error ? err.message : "Unknown error"
       );
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && mounted.current) setLoading(false);
     }
   }
 
   useEffect(() => {
+    mounted.current = true;
     void refresh();
+    return () => {
+      mounted.current = false;
+      requestController.current?.abort();
+    };
   }, []);
 
   const cards: { label: string; value: number }[] = data
@@ -86,99 +78,56 @@ export default function SummaryClient() {
     : [];
 
   return (
-    <section
-      data-allen-hr-overview="true"
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        padding: "12px 0 48px"
-      }}
-    >
-      <h2
-        style={{
-          color: "#113847",
-          fontSize: "clamp(26px, 3vw, 34px)",
-          fontWeight: 700,
-          lineHeight: 1.2,
-          margin: "0 0 18px"
-        }}
-      >
-        HR Overview
-      </h2>
-
-      <nav
-        aria-label="HR Quick Actions"
-        data-aa-hr-payroll-links="true"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 30
-        }}
-      >
-        <a
-          href="/hr/payroll"
-          style={actionStyle}
-        >
-          Payroll & Salary Management
-        </a>
-
-        <a
-          href="/hr/payroll/payslips"
-          style={{
-            ...actionStyle,
-            background: "#113847"
-          }}
-        >
-          Employee Payslips
-        </a>
-
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void refresh()}
-          style={{
-            ...actionStyle,
-            background: "#ffffff",
-            color: "#113847",
-            border: "2px solid #113847",
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "wait" : "pointer"
-          }}
-        >
-          {loading ? "Refreshing..." : "Refresh Dashboard"}
+    <section data-allen-hr-overview="true" className={styles.overview}>
+      <div className={styles.overviewHeading}>
+        <div><p className={styles.eyebrow}>AT A GLANCE</p><h2>Workforce overview</h2><p>Live counts from your HR records and operational registers.</p></div>
+        <button type="button" disabled={loading} onClick={() => void refresh()} className={styles.refreshButton}>
+          {loading ? "Refreshing…" : "Refresh overview"}
         </button>
-              <a
-          data-aa-moved-actions="true"
-          href="/hr/employees/new"
-          style={actionStyle}
-        >
-          + Add New Employee
-        </a>
+      </div>
 
-        <a
-          href="/hr/documents"
-          style={{
-            ...actionStyle,
-            background: "#113847"
-          }}
-        >
-          Employee Documents
-        </a>
-
-        <a
-          href="/hr/employees/directory"
-          style={{
-            ...actionStyle,
-            background: "#ffffff",
-            color: "#113847",
-            border: "2px solid #113847"
-          }}
-        >
-          Employee Directory
-        </a>
-<span data-aa-employee-management-links="true" style={{display:"contents"}}><a href="/hr/employees/active" style={actionStyle}>Active Employees</a><a href="/hr/employees/inactive" style={actionStyle}>Inactive Employees</a><a href="/hr/employees/history" style={actionStyle}>Employee History</a><a href="/hr/manage/onboarding" style={actionStyle}>Employee Onboarding</a><a href="/hr/manage/offboarding" style={actionStyle}>Employee Offboarding</a></span></nav>
+      <nav aria-label="HR workspace shortcuts" data-aa-hr-payroll-links="true" className={styles.shortcutGroups}>
+        <section className={styles.shortcutGroup}>
+          <p className={styles.eyebrow}>PEOPLE</p><h3>Employees and records</h3>
+          <div className={styles.shortcutLinks}>
+            <a href="/hr/employees/directory">Employee directory <span>Search and manage profiles</span></a>
+            {canManage && <a href="/hr/employees/new" data-aa-moved-actions="true">Add employee <span>Create a staff record</span></a>}
+            <a href="/hr/employees/active">Active employees <span>Current team members</span></a>
+            <a href="/hr/employees/inactive">Inactive employees <span>Former and inactive staff</span></a>
+            <a href="/hr/employees/history">Employee history <span>Changes and audit events</span></a>
+            <a href="/hr/documents">Employee documents <span>Secure personnel files</span></a>
+          </div>
+        </section>
+        <section className={styles.shortcutGroup}>
+          <p className={styles.eyebrow}>EMPLOYEE EXPERIENCE</p><h3>People workflows</h3>
+          <div className={styles.shortcutLinks}>
+            <a href="/hr/manage/onboarding">Onboarding <span>Prepare new starters</span></a>
+            <a href="/hr/manage/offboarding">Offboarding <span>Manage employee exits</span></a>
+            <a href="/hr/manage/attendance">Attendance <span>Review attendance records</span></a>
+            <a href="/hr/manage/leave">Leave <span>Track leave requests</span></a>
+            <a href="/hr/performance">Work and performance <span>Employee goals and reviews</span></a>
+          </div>
+        </section>
+        <section className={styles.shortcutGroup}>
+          <p className={styles.eyebrow}>BUSINESS OPERATIONS</p><h3>Resources and payroll</h3>
+          <div className={styles.shortcutLinks}>
+            <a href="/hr/payroll">Payroll management <span>Salary and payroll records</span></a>
+            <a href="/hr/payroll/payslips">Employee payslips <span>Published pay statements</span></a>
+            <a href="/inventory">Inventory control <span>Stock and supply operations</span></a>
+            <a href="/hr/suppliers">Supplier management <span>Supplier records and activity</span></a>
+            <a href="/hr/manage/assets">Assets <span>Assigned workplace equipment</span></a>
+            <a href="/hr/manage/clearance">Clearance <span>Exit clearance records</span></a>
+          </div>
+        </section>
+        <section className={styles.shortcutGroup}>
+          <p className={styles.eyebrow}>ACCESS AND QUALITY</p><h3>Governance</h3>
+          <div className={styles.shortcutLinks}>
+            <a href="/hr/access">Invitations and access <span>Manage account access</span></a>
+            {canManage && <><a href="/quality/risks">Risk management <span>Review the HR-managed risk register</span></a><a href="/production">Production and Lab access <span>Manage case-specific Lab grants</span></a><a href="/hr/doctor-verification">Doctor verification <span>Review professional records</span></a></>}
+            <a href="/hr/manage/reports">HR reports <span>People and operations reporting</span></a>
+          </div>
+        </section>
+      </nav>
 
       {error && (
         <p
@@ -199,15 +148,7 @@ export default function SummaryClient() {
         <p role="status">Loading HR statistics...</p>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(185px, 1fr))",
-          gap: 18,
-          alignItems: "stretch"
-        }}
-      >
+      <div className={styles.metricsGrid}>
         {cards.map(card => (
   <article
     key={card.label}

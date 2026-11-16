@@ -7,6 +7,8 @@ import { PortalError } from './portal-http';
 export type WorkActor={id:string;role:string;employeeId:string|null;mustChangePassword:boolean};
 async function sessionActor(request?:Request):Promise<WorkActor|null>{
  if(request&&request.method!=='GET'&&!sameOrigin(request))throw new PortalError(403,'Invalid request origin.');
+ // Authenticate this workspace only from its own work-session cookie. Other
+ // portal cookies must not invalidate an employee or clinical session.
  const token=(await cookies()).get('allen_work_session')?.value;
  if(!token||!/^[a-f0-9]{64}$/.test(token))return null;
  const [a]=await db.query(`SELECT a.id,a.role,a."employeeId",a."mustChangePassword" FROM "WorkSession" s JOIN "WorkAccount" a ON a.id=s."accountId" JOIN "ClinicalIdentity" e ON e."accountId"=a.id WHERE s."tokenHash"=$1 AND s."expiresAt">now() AND a."isActive" AND e.status='ACTIVE'`,[digest(token)]);
@@ -20,9 +22,11 @@ export async function workSessionActor(request?:Request):Promise<WorkActor>{
  return actor;
 }
 export async function workActor(request?:Request):Promise<WorkActor>{
+ // Preserve HR workspace permissions when both HR and employee sessions are
+ // present, while workSessionActor remains scoped to the work cookie only.
+ const hr=await currentHR();if(hr&&['HR_ADMIN','HR_OFFICER'].includes(String(hr.role)))return {id:String(hr.id),role:String(hr.role),employeeId:null,mustChangePassword:false};
  const actor=await sessionActor(request);
  if(actor)return actor;
- const hr=await currentHR();if(hr&&['HR_ADMIN','HR_OFFICER'].includes(String(hr.role)))return {id:String(hr.id),role:String(hr.role),employeeId:null,mustChangePassword:false};
  throw new PortalError(401,'Sign in to an active Allen account.');
 }
 export function admin(a:WorkActor){if(a.role!=='HR_ADMIN')throw new PortalError(403,'HR administrator required.');}

@@ -104,11 +104,17 @@ export default function DocumentList({
       const allowed = [
         "application/pdf",
         "image/jpeg",
-        "image/png"
+        "image/png",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       ];
 
       if (!allowed.includes(doc.mimeType)) {
         throw new Error("Unsupported document format");
+      }
+      if (action === "view" && !["application/pdf", "image/jpeg", "image/png"].includes(doc.mimeType)) {
+        throw new Error("This format can be downloaded but cannot be previewed here.");
       }
 
       const res = await fetch(
@@ -219,7 +225,7 @@ export default function DocumentList({
             flexWrap: "wrap",
             gap: 10
           }}>
-            <button
+            {["application/pdf", "image/jpeg", "image/png"].includes(doc.mimeType) && <button
               type="button"
               disabled={busy !== ""}
               onClick={() =>
@@ -237,7 +243,7 @@ export default function DocumentList({
               {busy === "view" + doc.id
                 ? "Opening..."
                 : "View Document"}
-            </button>
+            </button>}
 
             <button
               type="button"

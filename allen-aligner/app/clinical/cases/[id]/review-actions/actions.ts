@@ -54,6 +54,7 @@ async function execute(
       const assignedTo = field(form, "assignedTo");
       const priority = field(form, "priority");
       const dueDate = field(form, "dueDate");
+      const reason = field(form, "reason");
 
       if (
         assignedTo &&
@@ -68,7 +69,8 @@ async function execute(
           revision,
           assignedTo,
           priority,
-          dueDate
+          dueDate,
+          ...(reason ? { reason } : {})
         });
         success = true;
       }

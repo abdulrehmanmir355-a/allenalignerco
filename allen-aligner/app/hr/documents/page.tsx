@@ -41,7 +41,13 @@ export default function HRDocumentsPage() {
           );
         }
 
-        if (active) setEmployees(data.employees);
+        if (active) {
+          setEmployees(data.employees);
+          const requestedEmployeeId = new URLSearchParams(window.location.search).get("employeeId");
+          if (requestedEmployeeId && data.employees.some((employee: Employee) => employee.id === requestedEmployeeId)) {
+            setEmployeeId(requestedEmployeeId);
+          }
+        }
       } catch (err) {
         if (active) {
           setError(
@@ -236,7 +242,7 @@ export default function HRDocumentsPage() {
           <input
             key={fileKey}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"
             required
             disabled={uploading}
             onChange={e =>
@@ -250,7 +256,7 @@ export default function HRDocumentsPage() {
         </label>
 
         <p>
-          Accepted: PDF, JPG, PNG.
+          Accepted: PDF, JPG, PNG, DOC, DOCX, XLSX.
           Maximum size: 10 MB.
         </p>
 

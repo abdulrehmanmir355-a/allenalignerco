@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 
 import Link from "next/link";
@@ -17,24 +17,20 @@ export default function MainNavigation({ path, session }: { path: string; sessio
   const root = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
-  const [visibleGroupCount, setVisibleGroupCount] = useState(groups.length);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const [measured, setMeasured] = useState(false);
+  const [visibleGroupCount, setVisibleGroupCount] = useState(Math.min(2, groups.length));
+  const [hasOverflow, setHasOverflow] = useState(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = root.current;
     const measurement = probe.current;
     if (!node || !measurement) return;
     const calculate = () => {
-      const widths = Array.from(measurement.children).map(el =>
-        el.getBoundingClientRect().width
-      );
+      const widths = Array.from(measurement.children).map(el => el.getBoundingClientRect().width);
       const nextCompact = window.matchMedia("(max-width: 1000px)").matches;
-      let visible = 0;
+      let visible = nextCompact ? Math.min(2, groups.length) : 0;
       if (!nextCompact && widths.length) {
-        // Reserve the menu control while measuring to avoid a layout jump.
         const available = Math.max(0, node.clientWidth - 56);
-        let used = widths[0]; // Home stays closest to the logo.
+        let used = widths[0];
         for (const width of widths.slice(1)) {
           if (used + 4 + width > available) break;
           used += 4 + width;
@@ -42,10 +38,9 @@ export default function MainNavigation({ path, session }: { path: string; sessio
         }
       }
       const overflow = nextCompact || visible < groups.length;
-      setCompact(current => current === nextCompact ? current : nextCompact);
-      setVisibleGroupCount(current => current === visible ? current : visible);
-      setHasOverflow(current => current === overflow ? current : overflow);
-      setMeasured(true);
+      setCompact(nextCompact);
+      setVisibleGroupCount(visible);
+      setHasOverflow(overflow);
       if (!overflow) setMobileOpen(false);
     };
     const observer = new ResizeObserver(calculate);
@@ -95,50 +90,11 @@ export default function MainNavigation({ path, session }: { path: string; sessio
     };
   }, []);
 
-  useLayoutEffect(() => {
-    if (!mobileOpen) return;
-
-    const body = document.body;
-    const scrollY = window.scrollY;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    const previousBodyPosition = body.style.position;
-    const previousBodyTop = body.style.top;
-    const previousBodyLeft = body.style.left;
-    const previousBodyRight = body.style.right;
-    const previousBodyWidth = body.style.width;
-    const previousBodyOverflow = body.style.overflow;
-    const previousBodyPaddingRight = body.style.paddingRight;
-
-    body.style.position = "fixed";
-    body.style.top = "-" + scrollY + "px";
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) body.style.paddingRight = scrollbarWidth + "px";
-
-    const frame = requestAnimationFrame(() => {
-      const nav = root.current?.querySelector<HTMLElement>("#aa-v9-nav");
-      if (nav) nav.scrollTop = 0;
-    });
-
-    return () => {
-      cancelAnimationFrame(frame);
-      body.style.position = previousBodyPosition;
-      body.style.top = previousBodyTop;
-      body.style.left = previousBodyLeft;
-      body.style.right = previousBodyRight;
-      body.style.width = previousBodyWidth;
-      body.style.overflow = previousBodyOverflow;
-      body.style.paddingRight = previousBodyPaddingRight;
-      window.scrollTo(0, scrollY);
-    };
-  }, [mobileOpen]);
   return (
     <div
       className="navigation-root aa-v9-root aa-dyn-root"
       data-compact={compact ? "true" : "false"}
-      data-overflow={measured ? (hasOverflow ? "true" : "false") : undefined}
+      data-overflow={hasOverflow ? "true" : "false"}
       ref={root}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
@@ -152,33 +108,31 @@ export default function MainNavigation({ path, session }: { path: string; sessio
         if (!e.currentTarget.contains(e.relatedTarget)) close();
       }}
     >
-      <button
-        className="aa-v9-toggle"
-        type="button"
-        aria-expanded={mobileOpen}
-        aria-controls="aa-v9-nav"
-        onClick={() => {
-          cancel();
-          setOpen(null);
-          const headerBottom = root.current?.closest("header")?.getBoundingClientRect().bottom ?? 80;
-          root.current?.style.setProperty("--aa-header-bottom", `${headerBottom}px`);
-          setMenuTop(headerBottom);
-          
-const opening = !mobileOpen;
-setMobileOpen(opening);
-if (opening) requestAnimationFrame(() => {
-  const nav = document.getElementById("aa-v9-nav");
-  if (nav) nav.scrollTop = 0;
-});
-
-        }}
-      >
-        <span className="aa-menu-icon" aria-hidden="true"><span /><span /><span /></span><span className="aa-menu-label">{mobileOpen ? "Close" : "Menu"}</span>
+      <button className="aa-v9-toggle" type="button" aria-expanded={mobileOpen} aria-controls="aa-v9-nav" onClick={() => {
+        cancel();
+        setOpen(null);
+        const top = root.current?.closest("header")?.getBoundingClientRect().bottom ?? 80;
+        root.current?.style.setProperty("--aa-header-bottom", `${top}px`);
+        setMenuTop(top);
+        setMobileOpen(value => !value);
+      }}>
+        <span className="aa-menu-icon" aria-hidden="true"><span /><span /><span /></span><span className="aa-menu-label">Menu</span>
       </button>
-
       <nav
         id="aa-v9-nav"
-        style={mobileOpen ? { top: menuTop, maxHeight: `calc(100dvh - ${menuTop + 12}px)` } : undefined}
+        style={mobileOpen ? {
+          top: menuTop,
+          maxHeight: `calc(100dvh - ${menuTop + 12}px)`,
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr)",
+          gridAutoFlow: "row",
+          gridAutoRows: "max-content",
+          alignItems: "stretch",
+          justifyItems: "stretch",
+          alignContent: "start",
+          justifyContent: "stretch",
+          gap: 8,
+        } : undefined}
         className={`aa-v9-nav aa-dyn-nav${mobileOpen ? " is-open" : ""}`}
         aria-label="Main navigation"
         onWheel={(e) => {
@@ -205,7 +159,15 @@ if (opening) requestAnimationFrame(() => {
           return (
             <div
               className="aa-v9-group"
-              hidden={!mobileOpen && !compact && index >= visibleGroupCount}
+              style={mobileOpen ? {
+                display: "block",
+                alignItems: "stretch",
+                width: "100%",
+                minWidth: 0,
+                height: "auto",
+                flex: "0 0 auto",
+              } : undefined}
+              hidden={!mobileOpen && index >= visibleGroupCount}
               key={group.id}
               onPointerEnter={(e) => {
                 if (e.pointerType !== "mouse" || !desktop()) return;
@@ -247,11 +209,23 @@ if (opening) requestAnimationFrame(() => {
               <div
                 id={`aa-v9-panel-${group.id}`}
                 className="aa-v9-dropdown"
-                hidden={!expanded}
+                hidden={!mobileOpen && !expanded}
+                style={mobileOpen ? {
+                  position: "static",
+                  inset: "auto",
+                  display: expanded ? "block" : "none",
+                  width: "100%",
+                  minWidth: 0,
+                  maxWidth: "none",
+                  maxHeight: "none",
+                  margin: "6px 0 8px",
+                  transform: "none",
+                  flex: "0 0 auto",
+                } : undefined}
               >
                 <h2>{group.label}</h2>
                 {group.links.map(([href, label]) => (
-                  <Link href={href} key={href} onClick={close}>
+                  <Link href={href} key={href} onClick={close} aria-current={path === href || (href !== "/" && path.startsWith(`${href}/`)) ? "page" : undefined} target={href === "/hr/login" ? "_blank" : undefined} rel={href === "/hr/login" ? "noopener noreferrer" : undefined}>
                     {label}
                   </Link>
                 ))}
@@ -265,14 +239,10 @@ if (opening) requestAnimationFrame(() => {
           );
         })}
 
-</nav>
+      </nav>
       <div ref={probe} className="aa-dyn-measure" aria-hidden="true">
         <span className="aa-v9-link">Home</span>
-        {groups.map(group => (
-          <button type="button" tabIndex={-1} key={group.id} className="aa-v9-trigger">
-            {group.label} <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
-          </button>
-        ))}
+        {groups.map(group => <button type="button" tabIndex={-1} key={group.id} className="aa-v9-trigger">{group.label} <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></button>)}
       </div>
     </div>
   );

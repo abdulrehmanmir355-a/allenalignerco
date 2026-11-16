@@ -5,6 +5,17 @@ import { clinicalCase, manageClinical, type ClinicalActor } from './clinical-aut
 import { approvalProblem, clinicalActionSchema } from './clinical-validation';
 import { PortalError } from './portal-http';
 export async function clinicalDashboard(a:ClinicalActor){
+ const caseAssignments=await db.query(`SELECT c.id AS "caseId",c."patientReference",c.status AS "caseStatus",
+  c."createdAt" AS "caseCreatedAt",d."fullName" AS "doctorName",cl.name AS "clinicName",
+  ca."assignedAt",ca.reason,ca.revision,e."fullName" AS "assigneeName",w."clinicalRole" AS "assigneeRole",
+  (SELECT m.text FROM "CaseMessage" m WHERE m."caseId"=c.id AND m.audience='CASE'
+   ORDER BY m."createdAt" DESC,m.id DESC LIMIT 1) AS "latestSharedMessage",
+  (SELECT count(*)::int FROM "CaseMessage" m WHERE m."caseId"=c.id AND m.audience='CASE') AS "messageCount"
+  FROM "ClinicalCaseAssignment" ca JOIN "PortalCase" c ON c.id=ca."caseId"
+  JOIN "Doctor" d ON d.id=c."doctorId" JOIN "Clinic" cl ON cl.id=c."clinicId"
+  JOIN "WorkAccount" w ON w.id=ca."assignedTo" JOIN "ClinicalIdentity" e ON e."accountId"=w.id
+  WHERE c.status<>'DRAFT' AND ($1<>'REVIEWER' OR ca."assignedTo"=$2::uuid)
+  ORDER BY (ca."assignedTo"=$2::uuid) DESC,ca."assignedAt" DESC LIMIT 200`,[a.role,a.id]);
  const cases=await db.query(`SELECT c.id AS "caseId",c."patientReference",c.status AS "caseStatus",p.version,r.*,e."fullName" AS "reviewerName",
  extract(epoch FROM (coalesce(r."completedAt",now())-r."createdAt"))/3600 AS "turnaroundHours"
  FROM "ClinicalReview" r JOIN "TreatmentPlan" p ON p.id=r."planId" JOIN "PortalCase" c ON c.id=p."caseId"
@@ -14,7 +25,7 @@ export async function clinicalDashboard(a:ClinicalActor){
  const history=await db.query(`SELECT r.id,p."caseId",p.version,c."patientReference",r.status,r."completedAt",e."fullName" AS "reviewerName" FROM "ClinicalReview" r JOIN "TreatmentPlan" p ON p.id=r."planId" JOIN "PortalCase" c ON c.id=p."caseId" LEFT JOIN "WorkAccount" w ON w.id=r."decidedBy" LEFT JOIN "ClinicalIdentity" e ON e."accountId"=w.id WHERE r."completedAt" IS NOT NULL AND ($1<>'REVIEWER' OR r."assignedTo"=$2::uuid) ORDER BY r."completedAt" DESC LIMIT 200`,[a.role,a.id]);
  const team=a.role==='REVIEWER'?[]:await db.query(`SELECT w.id,e."fullName",e."permanentId",w."clinicalRole",w."isActive",e.status AS "employeeStatus",(SELECT count(*)::int FROM "ClinicalReview" r JOIN "TreatmentPlan" p ON p.id=r."planId" WHERE r."assignedTo"=w.id AND r.status IN ('PENDING','IN_REVIEW','ESCALATED') AND p.version=(SELECT max(version) FROM "TreatmentPlan" WHERE "caseId"=p."caseId")) AS workload FROM "WorkAccount" w JOIN "ClinicalIdentity" e ON e."accountId"=w.id WHERE w."clinicalRole" IS NOT NULL ORDER BY e."fullName"`);
  const registrations=a.role==='ADMIN'?await db.query(`SELECT w.id,e."fullName",e."permanentId",w."isActive" AS "accountActive",w."mustChangePassword",e.status AS "employeeStatus",w."clinicalRequest" FROM "WorkAccount" w JOIN "ClinicalIdentity" e ON e."accountId"=w.id WHERE w."clinicalRequest"->>'status'='PENDING' ORDER BY w."clinicalRequest"->>'requestedAt'`):[];
- return {actor:a,cases,history,team,registrations};
+ return {actor:a,cases,caseAssignments,history,team,registrations};
 }
 export async function clinicalWorkspace(a:ClinicalActor,id:string){
  const c=await clinicalCase(a,id);
@@ -62,7 +73,12 @@ export async function clinicalUpdate(a:ClinicalActor,id:string,input:unknown){
    if(!reviewer || (r.status==='ESCALATED'&&reviewer.clinicalRole!=='LEAD'))throw new PortalError(400,'Select an active qualified reviewer; escalations require a Clinical Lead.');
    if(b.assignedTo===r.preparedByAccountId||reviewer.employeeId===r.preparedByEmployeeId)throw new PortalError(409,'The preparer cannot be assigned as the clinical reviewer of this version.');
    const changed=r.assignedTo!==b.assignedTo;
-   await tx.query(`UPDATE "ClinicalReview" SET "assignedTo"=$2,priority=$3,"dueDate"=nullif($4,'')::date,status=CASE WHEN $5 AND status='IN_REVIEW' THEN 'PENDING' ELSE status END,checklist=CASE WHEN $5 THEN '{}'::jsonb ELSE checklist END,notes=CASE WHEN $5 THEN '' ELSE notes END,"startedAt"=CASE WHEN $5 THEN NULL ELSE "startedAt" END,revision=revision+1 WHERE id=$1`,[r.id,b.assignedTo,b.priority,b.dueDate||'',changed]);return;
+   const reassigned=changed&&r.assignedTo!==null;
+   if(reassigned&&(!b.reason||b.reason.trim().length<10))throw new PortalError(400,'Add a reason of at least 10 characters to reassign this case.');
+   if(reassigned)await tx.query(`SELECT set_config('allen.clinical_assignment_reason',$1,true)`,[b.reason!.trim()]);
+   await tx.query(`UPDATE "ClinicalReview" SET "assignedTo"=$2,priority=$3,"dueDate"=nullif($4,'')::date,status=CASE WHEN $5 AND status='IN_REVIEW' THEN 'PENDING' ELSE status END,checklist=CASE WHEN $5 THEN '{}'::jsonb ELSE checklist END,notes=CASE WHEN $5 THEN '' ELSE notes END,"startedAt"=CASE WHEN $5 THEN NULL ELSE "startedAt" END,revision=revision+1 WHERE id=$1`,[r.id,b.assignedTo,b.priority,b.dueDate||'',changed]);
+   if(reassigned)await tx.query(`INSERT INTO "ClinicalReviewAudit"("reviewId","actorId","actorName",action,detail) VALUES($1,$2,$3,'REASSIGNED',$4::jsonb)`,[r.id,a.id,a.name,JSON.stringify({fromAccountId:r.assignedTo,toAccountId:b.assignedTo,reason:b.reason!.trim(),planVersion:r.version,priority:b.priority,dueDate:b.dueDate||null})]);
+   return;
   }
   if(a.id===r.preparedByAccountId||activeActor.employeeId===r.preparedByEmployeeId)throw new PortalError(403,'You prepared this plan version. A different qualified clinician must review it.');
   if(a.role==='ADMIN'||(r.assignedTo!==a.id && !(a.role==='LEAD'&&r.status==='ESCALATED')))throw new PortalError(403,'Only the assigned qualified reviewer or escalated Clinical Lead may review.');

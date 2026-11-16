@@ -7,6 +7,7 @@ import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { currentHR } from "../../../lib/hr-auth";
 import { db } from "../../../lib/database";
+import { validateHRDocument } from "../../../lib/hr-document-file";
 
 export const runtime = "nodejs";
 
@@ -72,33 +73,10 @@ export async function POST(request: Request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
-
-    let extension = "";
-
-    if (
-      file.type === "application/pdf" &&
-      bytes.subarray(0, 5).toString() === "%PDF-"
-    ) {
-      extension = ".pdf";
-    } else if (
-      file.type === "image/jpeg" &&
-      bytes[0] === 0xff &&
-      bytes[1] === 0xd8 &&
-      bytes[2] === 0xff
-    ) {
-      extension = ".jpg";
-    } else if (
-      file.type === "image/png" &&
-      bytes.subarray(0, 8).equals(
-        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-      )
-    ) {
-      extension = ".png";
-    }
-
-    if (!extension) {
+    const validated = validateHRDocument(file.name, bytes);
+    if (!validated) {
       return Response.json(
-        { error: "Only valid PDF, JPG and PNG files allowed" },
+        { error: "Choose a valid PDF, JPG, PNG, DOC, DOCX or XLSX file." },
         { status: 400 }
       );
     }
@@ -116,7 +94,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const storageKey = randomUUID() + extension;
+    const storageKey = randomUUID() + validated.extension;
     const documentId = randomUUID();
 
     const folder = path.join(
@@ -148,7 +126,7 @@ export async function POST(request: Request) {
           documentType,
           path.basename(file.name).slice(0, 180),
           storageKey,
-          file.type,
+          validated.mimeType,
           file.size
         ]
       );
@@ -181,7 +159,7 @@ export async function GET(request: Request) {
  if(employeeId&&!await hrEmployeeAllowed(hr,employeeId))return Response.json({error:"Employee not found"},{status:404});
  if (!employeeId || employeeId.length > 100) return Response.json({error:"Employee ID required"},{status:400});
  try {
-  const documents = await db.query('SELECT "id","originalName","documentType","uploadedAt","sizeBytes" FROM "EmployeeDocument" WHERE "employeeId"=$1 ORDER BY "uploadedAt" DESC LIMIT 200',[employeeId]);
+  const documents = await db.query('SELECT "id","originalName","documentType","mimeType","uploadedAt","sizeBytes" FROM "EmployeeDocument" WHERE "employeeId"=$1 ORDER BY "uploadedAt" DESC LIMIT 200',[employeeId]);
   return Response.json({documents},{headers:{"Cache-Control":"private, no-store"}});
  } catch { return Response.json({error:"Document database unavailable"},{status:503}); }
 }

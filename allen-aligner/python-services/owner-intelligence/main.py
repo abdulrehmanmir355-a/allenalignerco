@@ -1,6 +1,7 @@
 import os
 import hmac
 from db_metrics import db_health, employee_kpis
+from manufacturing_audit import manufacturing_workflow_audit
 
 from typing import List, Literal, Optional
 from fastapi import FastAPI, Header, HTTPException
@@ -94,5 +95,12 @@ def owner_kpis(
 ):
     authorize(x_engine_key)
     return employee_kpis()
+
+@app.get("/owner/manufacturing-workflow")
+def owner_manufacturing_workflow(
+    x_engine_key: Optional[str] = Header(default=None)
+):
+    authorize(x_engine_key)
+    return manufacturing_workflow_audit()
 from employee_dashboard import router as employee_router
 app.include_router(employee_router)

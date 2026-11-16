@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sha256 } from "@noble/hashes/sha2.js";
 import { useRouter } from 'next/navigation';
+import ClinicalModelViewer from './clinical-model-viewer';
+import { caseRecordExtensions } from '../lib/case-intake';
 type Row = {
     key: string;
     id?: string;
@@ -45,16 +47,22 @@ async function digest(blob: Blob) {
 }
 async function api(url: string, method = 'GET', body?: unknown, authorizationToken?: string) { const headers: Record<string, string> = {}; if (body) headers['Content-Type'] = 'application/json'; if (authorizationToken) headers.Authorization = `Bearer ${authorizationToken}`; const r = await fetch(url, { method, credentials: 'same-origin', cache: 'no-store', headers, body: body ? JSON.stringify(body) : undefined }); const data = await r.json(); if (!r.ok)
     throw Error(data.message || 'Request failed.'); return data; }
-export default function LargeClinicalUpload({ action, canUpload, authorizationToken, onUploadComplete }: {
+export default function LargeClinicalUpload({ action, canUpload, authorizationToken, onUploadComplete, patientReference, uploaderLabel, maxFileSize = 1024 ** 3, recordType = 'scan' }: {
     action: string;
     canUpload: boolean;
     authorizationToken?: string;
     onUploadComplete?: () => void;
+    patientReference?: string;
+    uploaderLabel?: string;
+    maxFileSize?: number;
+    recordType?: 'scan' | 'photo' | 'xray';
 }) {
+    const acceptedExtensions = caseRecordExtensions[recordType].map(extension => '.' + extension).join(',');
     const router = useRouter();
     const [rows, setRows] = useState<Row[]>([]);
     const [files, setFiles] = useState<Stored[]>([]);
     const [notice, setNotice] = useState('');
+    const [model, setModel] = useState<Stored | null>(null);
     const nextKey = useRef(0);
     const active = useRef(new Set<string>());
     const paused = useRef(new Set<string>());
@@ -63,7 +71,7 @@ export default function LargeClinicalUpload({ action, canUpload, authorizationTo
     const update = (key: string, patch: Partial<Row>) => { if (mounted.current)
         setRows(old => old.map(r => r.key === key ? { ...r, ...patch } : r)); };
     const refresh = useCallback(async () => { try {
-        const data = await api(action, 'GET', undefined, authorizationToken);
+        const data = await api(`${action}?recordType=${encodeURIComponent(recordType)}`, 'GET', undefined, authorizationToken);
         if (!mounted.current)
             return;
         setFiles(data.files);
@@ -74,14 +82,14 @@ export default function LargeClinicalUpload({ action, canUpload, authorizationTo
     catch (e) {
         if (mounted.current)
             setNotice((e as Error).message);
-    } }, [action, authorizationToken]);
+    } }, [action, authorizationToken, recordType]);
     useEffect(() => { mounted.current = true; const timer = window.setTimeout(() => void refresh(), 0); const running = active.current, stopped = paused.current, xhrs = transfers.current; return () => { window.clearTimeout(timer); mounted.current = false; for (const key of running)
         stopped.add(key); for (const xhr of xhrs.values())
         xhr.abort(); }; }, [refresh]);
     function select(list: FileList | null) { if (!list)
         return; for (const file of Array.from(list)) {
-        if (!/\.(stl|ply|obj|dcm|pdf|jpe?g|png)$/i.test(file.name) || file.size < 1 || file.size > 1024 ** 3) {
-            setNotice('Allowed: STL, PLY, OBJ, DCM, PDF, JPG, PNG; maximum 1 GB per file.');
+        if (!caseRecordExtensions[recordType].some(extension => file.name.toLowerCase().endsWith('.' + extension)) || file.size < 1 || file.size > maxFileSize) {
+            setNotice(`This ${recordType} category accepts: ${caseRecordExtensions[recordType].map(extension => '.' + extension).join(', ')}. Maximum ${(maxFileSize / 1024 ** 3).toFixed(maxFileSize % (1024 ** 3) ? 2 : 0)} GB per file.`);
             continue;
         }
         const key = `local-${++nextKey.current}`;
@@ -96,7 +104,7 @@ export default function LargeClinicalUpload({ action, canUpload, authorizationTo
         let id = row.id;
         try {
             if (!id) {
-                const created = await api(action, 'POST', { name: row.name, size: row.size }, authorizationToken);
+                const created = await api(action, 'POST', { name: row.name, size: row.size, recordType }, authorizationToken);
                 id = created.id;
                 update(row.key, { id });
             }
@@ -170,26 +178,33 @@ export default function LargeClinicalUpload({ action, canUpload, authorizationTo
         anchor.href = url; anchor.download = file.originalName; anchor.click(); URL.revokeObjectURL(url);
     }
 
+    function openModel(file: Stored) {
+        setModel(file);
+    }
+
     return (
-      <div className="form-stack">
+      <div className="form-stack" onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; }} onDrop={event => { event.preventDefault(); if (canUpload) select(event.dataTransfer.files); }}>
+        {model && <ClinicalModelViewer key={model.id} url={action + '/files/' + encodeURIComponent(model.id) + '?preview=1'} authorizationToken={authorizationToken} name={model.originalName} onClose={() => setModel(null)} />}
         <h3>Large clinical files</h3>
+        {(patientReference || uploaderLabel) && <p className="fine-print">Patient / case: {patientReference || 'Linked to this case'}{uploaderLabel ? ` · Uploading as ${uploaderLabel}` : ''}</p>}
         <p className="fine-print">
-          Up to 1 GB each: STL, PLY, OBJ, DCM (Part 10), PDF, JPG and PNG.
+          3D scans: STL, OBJ, PLY, 3MF, WRL/VRML, GLB/GLTF, DAE, FBX and OFF. Attachments: DICOM (Part 10), ZIP, PDF, JPG and PNG. Preview is available for STL, OBJ, PLY and GLB. Maximum {(maxFileSize / 1024 ** 3).toFixed(maxFileSize % (1024 ** 3) ? 2 : 0)} GB per file.
           Uploads can resume for 24 hours; after reloading, select the original files again.
-          Same-name uploads create a new version.
+          Same-name uploads create a new version. Mesh files open as source models; no treatment movements are generated.
         </p>
         {files.length > 0 ? (
           <ul>{files.map(f => (
             <li key={f.id}>
               {authorizationToken ? <button type="button" className="text-link" onClick={() => void download(f)}>{f.originalName}</button> : <a href={action + '/files/' + f.id}>{f.originalName}</a>}
+        { /\.(stl|ply|obj|glb|gltf|3mf|wrl|vrml|dae|fbx|off)$/i.test(f.originalName) && <button type="button" className="text-link" onClick={() => openModel(f)}>Open 3D model</button> }
               {' · v'}{f.version}{' · '}{(f.sizeBytes / 1024 / 1024).toFixed(2)} MB
-              {f.uploadedByLabel ? ` · ${f.uploadedByLabel}` : ''}
+              {f.uploadedByLabel ? ` · ${f.uploadedByLabel}` : ''}{f.createdAt ? ` · ${new Date(f.createdAt).toLocaleDateString()}` : ''}
             </li>
           ))}</ul>
         ) : <p>No large files attached.</p>}
         {canUpload && <>
-          <label>Choose large clinical files
-            <input type="file" multiple accept=".stl,.ply,.obj,.dcm,.pdf,.jpg,.jpeg,.png"
+          <label className="notice" style={{ display: 'block', cursor: 'pointer' }}>Drop files here or choose files
+            <input type="file" multiple accept={acceptedExtensions}
               onChange={e => { select(e.target.files); e.target.value = ''; }} />
           </label>
           {rows.map(r => (
@@ -201,7 +216,7 @@ export default function LargeClinicalUpload({ action, canUpload, authorizationTo
               <p role="status">{r.progress}% {r.message}</p>
               {r.state === 'paused' && (
                 <label>Reselect original file
-                  <input type="file" accept=".stl,.ply,.obj,.dcm,.pdf,.jpg,.jpeg,.png"
+                  <input type="file" accept={acceptedExtensions}
                     onChange={e => {
                       const file = e.target.files?.[0];
                       if (file && file.size === r.size) {

@@ -13,12 +13,5 @@ export function matchesOwnerHRAuditActor(owner: { id: string; ownerId: string } 
   return !!owner && !!actor && actor.id === owner.id && actor.email === ownerHRAuditEmail(owner.ownerId) && actor.role === "HR_ADMIN" && actor.isActive === false;
 }
 
-export function resolveHRAuthorizationActor(
-  hrActor: { id: string; email: string; role: string } | null,
-  owner: { id: string; ownerId: string; email: string } | null,
-  auditActor: { id: string; email: string; role: string; isActive: boolean } | null
-) {
-  if (hrActor) return hrActor;
-  if (!owner || !matchesOwnerHRAuditActor(owner, auditActor)) return null;
-  return { id: owner.id, email: owner.email, role: "HR_ADMIN" };
-}
+// Owner audit rows exist only to satisfy legacy HR foreign keys. They must
+// never be resolved into an authenticated HR actor.

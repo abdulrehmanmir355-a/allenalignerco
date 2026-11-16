@@ -1,6 +1,87 @@
 /* Allen portal interactions and responsive layouts. */
 .portal { --portal-accent: #245b48; }
 .portal-main { min-width: 0; }
+
+/* Clear, lightly animated Modules 15–20 handoff cards */
+.portal .module-flow-grid { perspective: 900px; }
+.portal .module-flow-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 142px;
+  box-shadow: 0 8px 22px rgba(21, 63, 73, .055);
+  animation: module-flow-enter 460ms cubic-bezier(.2,.75,.25,1) both;
+  animation-delay: calc(var(--module-index, 0) * 55ms);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+.portal .module-flow-card::after {
+  position: absolute;
+  z-index: -1;
+  inset: -40% auto -40% -55%;
+  width: 42%;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-18deg);
+  animation: module-flow-sheen 5.5s ease-in-out infinite;
+  animation-delay: calc(var(--module-index, 0) * 180ms);
+}
+.portal .module-flow-card[data-state="complete"] { border-color: #a8d9c8 !important; background: linear-gradient(145deg, #f3fbf6, #e8f5ef) !important; }
+.portal .module-flow-card[data-state="in-progress"],
+.portal .module-flow-card[data-state="ready"] { border-color: #8bcbd0 !important; background: linear-gradient(145deg, #f0fbfa, #edf5ff) !important; }
+.portal .module-flow-card[data-state="action-needed"] { border-color: #e6c49c !important; background: linear-gradient(145deg, #fffaf2, #fff4e9) !important; }
+@media (hover:hover) {
+  .portal .module-flow-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(21, 63, 73, .12); }
+}
+@keyframes module-flow-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes module-flow-sheen { 0%, 68% { left: -55%; opacity: 0; } 75% { opacity: .75; } 94%, 100% { left: 125%; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .portal .module-flow-card, .portal .module-flow-card::after { animation: none; transition: none; }
+  .portal .module-flow-card:hover { transform: none; }
+}
+.portal { --portal-accent: #147a82; grid-template-columns: 252px minmax(0, 1fr); background:#f3f7f5; }
+.portal-sidebar { background:#eaf1ee; border-right-color:#d5e1dc; }
+.portal-sidebar .sidebar-help h3 { margin-top: 0; }
+.portal-sidebar .eyebrow { color:#39706e; }
+.portal-sidebar nav a[aria-current="page"],.portal-sidebar nav .workspace-case-group.is-active summary { background:#d7e9e5;color:#124c52; }
+.portal-main { width:100%; max-width:1600px; margin:0 auto; padding:26px clamp(22px,3.2vw,52px) 64px; background:#f7faf8; }
+.portal .doctor-workspace-bar { border-color:#d0e1dc; border-radius:12px; background:linear-gradient(110deg,#e8f2ed,#edf4f3); }
+.portal .page-heading { margin:34px 0 26px; }
+.portal .page-heading h1 { color:#123c46; }
+.portal .page-heading>.button { border-radius:8px; background:#126a75; border-color:#126a75; box-shadow:0 8px 20px #126a751c; }
+.portal .page-heading>.button:hover { background:#0b5360; }
+.portal .stats-grid { gap:14px; }
+.portal .actionable-stat { min-height:142px; border-color:#dbe6e1; border-radius:10px; box-shadow:0 6px 18px #163e4108; }
+.portal .actionable-stat>span { display:flex; justify-content:space-between; gap:8px; color:#5d7476; }
+.portal .actionable-stat strong { color:#164751; }
+.portal .dashboard-grid { gap:18px; }
+.portal .dashboard-grid>.panel,.portal-main>section.panel { border-color:#dbe6e1; border-radius:10px; box-shadow:0 6px 18px #163e4108; }
+.portal .panel-heading { padding:23px 25px; }
+.portal .panel-heading .eyebrow,.portal .next-actions>.eyebrow { margin-bottom:9px; color:#368183; }
+.portal .panel-heading h2,.portal .next-actions h2 { color:#153f49; }
+.portal .next-actions { border-color:#d3e2df; border-radius:10px; background:#eaf3f0; }
+.portal .next-actions>a:not(.text-link) { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px 0; border-bottom:1px solid #d2e2dd; }
+.portal .next-actions>a:not(.text-link) strong,.portal .next-actions>a:not(.text-link) small { display:block; }
+.portal .next-actions>a:not(.text-link) strong { color:#17434c; font-size:13px; }
+.portal .next-actions>a:not(.text-link) small { margin-top:4px; color:#6c8080; font-size:10px; }
+.portal .next-actions>a:not(.text-link)>b { display:grid; width:32px;height:32px;flex:0 0 32px;place-items:center;border-radius:50%;background:#d3e9e5;color:#126974;font-size:12px; }
+.portal .activity-feed { margin:0 24px 20px; }
+.portal .badge[data-status="REVIEW"] { background:#e0f1eb;color:#176449; }
+.case-history-timeline { margin-top:24px; }
+.case-history-heading { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px; }
+.case-history-heading .eyebrow { margin-bottom:8px; }
+.case-history-heading h2 { font-size:24px; }
+.case-history-feed { max-height:none;list-style:none;margin:0;padding:0 0 0 20px;border-left:2px solid #cfe1dc; }
+.case-history-entry { position:relative;margin:0;padding:8px 0 24px 20px;border-bottom:1px solid #e7eeeb; }
+.case-history-entry:last-child { border-bottom:0;padding-bottom:0; }
+.case-history-entry::before { content:"";position:absolute;width:10px;height:10px;left:-26px;top:16px;border:3px solid #f7faf8;border-radius:50%;background:#147a82;box-shadow:0 0 0 1px #9fc9c4; }
+.case-history-title { display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0;color:#143f49;font-size:16px; }
+.case-history-title span { color:#147a82;font-size:12px;font-weight:650;white-space:nowrap; }
+.case-history-title:hover span { text-decoration:underline; }
+.case-history-entry p { margin-top:5px;color:#607478;font-size:12px; }
+.case-history-entry p strong { color:#193f49; }
+@media(max-width:650px){.case-history-heading{align-items:flex-start;flex-direction:column}.case-history-title{align-items:flex-start;flex-direction:column;gap:4px}}
+.portal .badge[data-status="CHANGES_REQUESTED"] { background:#fff0df;color:#8a561b; }
 .portal .patient-management { min-width: 0; color: var(--ink); }
 .portal-detail-grid { display:grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap:24px; }
 .portal-fieldset { border:0; padding:0; min-width:0; display:grid; gap:24px; }
@@ -26,6 +107,9 @@
 @media (prefers-reduced-motion:no-preference) { .portal-main > .page-heading { animation:allen-portal-enter 220ms ease-out; } }
 @keyframes allen-portal-enter { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 @media(max-width:760px) {
+ .portal { grid-template-columns:1fr; }
+ .portal-main { padding:20px 18px 44px; }
+ .portal .stats-grid { gap:10px; }
  .portal-detail-grid { grid-template-columns:1fr; }
  .portal .workspace-note { flex-wrap:wrap; }
  .portal .page-heading { gap:16px; flex-wrap:wrap; }
@@ -84,3 +168,38 @@ body:has(.portal) .portal { margin-top:0 !important; padding-top:0 !important; }
  .portal .doctor-workspace-signout { transition:none; }
  .portal .doctor-workspace-spinner { animation-duration:1.5s; }
 }
+
+/* Structured new case intake */
+.new-case-wizard { width:min(1100px,100%); margin-inline:auto; padding-bottom:40px; }
+.case-wizard-progress { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,240px); align-items:center; gap:18px; margin:20px 0 14px; padding:16px 18px; border:1px solid #d8e2e8; border-radius:12px; background:#fff; }
+.case-wizard-progress > div { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.case-wizard-progress > div > span { color:#587080; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.case-wizard-progress strong { color:#17394b; font-size:16px; }
+.case-wizard-progress progress { width:100%; height:9px; margin:0; accent-color:#176caa; }
+.case-wizard-steps { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:20px 0; }
+.case-wizard-steps span { display:flex; align-items:center; gap:8px; min-width:0; min-height:46px; padding:9px 10px; border:1px solid #d9e0dc; border-radius:9px; background:#fff; color:#536a7b; font-size:12px; line-height:1.25; }
+.case-wizard-steps b { display:grid; width:25px; height:25px; flex:0 0 25px; place-items:center; border-radius:50%; background:#edf1ed; }
+.case-wizard-steps .is-active { border-color:#28634f; background:#f2f7f2; color:#174b3b; font-weight:700; }
+.case-wizard-steps .is-active b { background:#176caa; color:#fff; }
+.case-wizard-steps .is-complete b { background:#28634f; color:#fff; }
+.case-patient-search { position:relative; }
+.case-patient-search input { width:100%; }
+.case-patient-results { position:absolute; z-index:20; top:calc(100% + 4px); left:0; right:0; max-height:280px; overflow:auto; list-style:none; margin:0; padding:6px; background:#fff; border:1px solid #cbd9df; border-radius:10px; box-shadow:0 12px 28px #17394b20; }
+.case-patient-results li { margin:0; padding:0; }
+.case-patient-results button { display:flex; flex-direction:column; align-items:flex-start; width:100%; padding:10px 12px; border:0; border-radius:7px; background:transparent; color:#17394b; text-align:left; cursor:pointer; }
+.case-patient-results button:hover,.case-patient-results button[aria-selected="true"] { background:#eef6f6; }
+.case-patient-results small { margin-top:3px; color:#617580; }
+.case-patient-selected { padding:10px 12px; border:1px solid #d8e6e8; border-radius:8px; background:#f4f9f8; }
+.wizard-actions { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.case-review-list { display:grid; grid-template-columns:minmax(160px, .7fr) minmax(0, 2fr); gap:10px 18px; }
+.case-review-list dt { color:#53635c; font-weight:700; }
+.case-review-list dd { min-width:0; margin:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+.case-record-upload-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr)); gap:14px; margin-top:18px; }
+@media(max-width:650px) {
+ .case-wizard-progress { grid-template-columns:1fr; gap:10px; }
+ .case-wizard-steps { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .case-wizard-steps span { font-size:11px; }
+ .case-review-list { grid-template-columns:1fr; gap:4px; }
+ .case-review-list dd { margin:0 0 10px; }
+}
+@media(min-width:651px) and (max-width:900px) { .case-wizard-steps { grid-template-columns:repeat(3,minmax(0,1fr)); } }

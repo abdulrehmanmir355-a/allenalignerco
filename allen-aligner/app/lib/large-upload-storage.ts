@@ -35,6 +35,9 @@ export async function assembleUpload(s: {
     const hash = createHash('sha256');
     let size = 0;
     let head: Buffer = Buffer.alloc(0), tail: Buffer = Buffer.alloc(0);
+    const extension = s.originalName.toLowerCase().split('.').pop();
+    let needsFullValidation = /^(?:obj|3mf|wrl|vrml|gltf|dae|fbx|off|zip)$/.test(extension || '');
+    const validationBuffers: Buffer[] = [];
     try {
         for (const c of chunks) {
             const bytes = await readUploadChunk(s.id, c.chunkIndex);
@@ -44,7 +47,20 @@ export async function assembleUpload(s: {
             size += bytes.length;
             if (!head.length)
                 head = bytes.subarray(0, 65536);
+            if (c.chunkIndex === 0 && extension === 'ply' && /^ply\r?\nformat ascii /i.test(bytes.toString('ascii', 0, Math.min(bytes.length, 128)))) {
+                if (s.totalBytes > 128 * 1024 * 1024) throw new PortalError(413, 'ASCII PLY files are limited to 128 MB for safe content verification.');
+                needsFullValidation = true;
+            }
+            if (c.chunkIndex === 0 && extension === 'stl' && /^solid[^\r\n]*[\r\n]/i.test(bytes.toString('ascii', 0, Math.min(bytes.length, 128)))) {
+                const binaryCount = bytes.length >= 84 ? bytes.readUInt32LE(80) : 0;
+                const isValidBinary = binaryCount > 0 && 84 + binaryCount * 50 === s.totalBytes;
+                if (!isValidBinary) {
+                    if (s.totalBytes > 128 * 1024 * 1024) throw new PortalError(413, 'ASCII STL files are limited to 128 MB for safe content verification.');
+                    needsFullValidation = true;
+                }
+            }
             tail = Buffer.concat([tail, bytes]).subarray(-65536);
+            if (needsFullValidation) validationBuffers.push(bytes);
             await out.writeFile(bytes);
         }
         const checksum = hash.digest('hex');
@@ -52,7 +68,7 @@ export async function assembleUpload(s: {
             throw new PortalError(400, 'File size mismatch.');
         if (s.expectedSha256 && s.expectedSha256 !== checksum)
             throw new PortalError(400, 'File checksum mismatch.');
-        if (!validClinicalContent(s.originalName, head, tail, size))
+        if (!validClinicalContent(s.originalName, head, tail, size, needsFullValidation ? Buffer.concat(validationBuffers, size) : undefined))
             throw new PortalError(400, 'File content does not match the selected clinical format.');
         await out.sync();
         await out.close();

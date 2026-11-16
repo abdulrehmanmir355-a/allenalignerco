@@ -33,10 +33,12 @@ export default function ClinicalFileUpload({
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   const [selected, setSelected] = useState<File | null>(null);
+  const [recordType, setRecordType] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
+  const [savedFiles, setSavedFiles] = useState<{ id: string; name: string; size: number }[]>([]);
 
   useEffect(() => {
     return () => {
@@ -86,6 +88,7 @@ export default function ClinicalFileUpload({
 
     const formData = new FormData();
     formData.append("file", selected);
+    if (recordType) formData.append("recordType", recordType);
 
     const xhr = new XMLHttpRequest();
     xhrRef.current = xhr;
@@ -108,7 +111,10 @@ export default function ClinicalFileUpload({
     };
 
     xhr.onload = () => {
-      let result: { message?: string } = {};
+      let result: {
+        message?: string;
+        file?: { id: string; name: string; size: number };
+      } = {};
 
       try {
         result = JSON.parse(xhr.responseText);
@@ -121,7 +127,14 @@ export default function ClinicalFileUpload({
         setMessage(
           result.message || "Clinical file stored successfully."
         );
+        if (result.file) {
+          setSavedFiles((files) => [
+            result.file!,
+            ...files.filter((file) => file.id !== result.file!.id),
+          ]);
+        }
         setSelected(null);
+        setProgress(null);
         if (inputRef.current) {
           inputRef.current.value = "";
         }
@@ -168,6 +181,8 @@ export default function ClinicalFileUpload({
         Select an STL dental scan, PDF clinical record,
         or JPG/PNG image from your computer.
       </p>
+
+      <label>Record category<select value={recordType} onChange={event => setRecordType(event.target.value)} disabled={busy}><option value="">Uncategorized attachment</option><option value="scan">3D scan</option><option value="photo">Clinical photo</option><option value="xray">X-ray</option></select></label>
 
       <label>
         Choose clinical file
@@ -259,6 +274,22 @@ export default function ClinicalFileUpload({
         >
           {message}
         </p>
+      )}
+
+      {savedFiles.length > 0 && (
+        <div className="notice" aria-live="polite">
+          <strong>Saved clinical files</strong>
+          <ul>
+            {savedFiles.map((file) => (
+              <li key={file.id}>
+                <a href={`/api/portal/files/${encodeURIComponent(file.id)}`}>
+                  {file.name}
+                </a>
+                {" · "}{Math.ceil(file.size / 1024)} KB · saved to this case
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <p className="fine-print">

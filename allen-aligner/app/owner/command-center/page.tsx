@@ -220,7 +220,7 @@ export default function OwnerCommandCenter() {
           {[ 
             ['/owner/employees','Owner employee records'],['/owner/js-employees','Employee ID search'],
             ['/owner/employees/directory-live','Live employee directory'],['/owner/employees/schema','Employee database structure'],
-            ['/owner/doctor-review','Doctor review'],['/owner/analytics','Executive analytics'],
+            ['/owner/analytics','Executive analytics'],
             ['/owner/clinical/approvals','Clinical registrations and administrator appointments'],
             ['/owner/alerts','Owner alerts'],['/owner/customer-service','Customer service controls'],
             ['/owner/part-a-integrity','Data integrity'],['/owner/js-command-center','Operations command center'],

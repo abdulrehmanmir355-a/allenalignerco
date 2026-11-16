@@ -42,10 +42,17 @@ export async function GET() {
         ok: false,
         message: "Python API key not configured in Next.js",
       };
+  const manufacturingWorkflow = apiKey
+    ? await requestPython("/owner/manufacturing-workflow", headers)
+    : {
+        ok: false,
+        message: "Python API key not configured in Next.js",
+      };
   return NextResponse.json(
     {
       health,
       kpis,
+      manufacturingWorkflow,
       checkedAt: new Date().toISOString(),
     },
     {

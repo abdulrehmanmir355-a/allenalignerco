@@ -290,10 +290,10 @@ export default function DocumentManager({
 
                 <div style={{ marginTop: 16 }}>
                   <label>
-                    Select Replacement File (PDF / JPG / PNG)
+                    Select Replacement File (PDF / JPG / PNG / DOC / DOCX / XLSX)
                     <input
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"
                       onChange={e =>
                         setFiles(prev => ({
                           ...prev,

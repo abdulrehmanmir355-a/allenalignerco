@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 
 const links = [
   ["/doctor-dashboard", "Overview", "◫"],
-  ["/clinic/patients", "Patient Master", "◎"],
-  ["/doctor-dashboard/patients", "Patients", "◎"],
-  ["/doctor-dashboard/history", "Case history", "◇"],
+  ["/doctor-dashboard/patients", "Patient Master", "◎"],
+  ["/doctor-dashboard/history", "Case Timeline", "◇"],
   ["/doctor-dashboard/communication", "Doctor–Lab Chat", "✉"],
+  ["/doctor-dashboard/lab-communication", "Lab Messages", "🔬"],
   ["/doctor-dashboard/plans", "Treatment plans", "◇"],
   ["/doctor-dashboard/documents", "Documents", "▧"],
   ["/doctor-dashboard/notifications", "Notifications", "○"],
@@ -81,7 +81,6 @@ export default function PortalNav() {
         
       </nav>
       <div className="sidebar-help">
-        <span className="small-symbol">✧</span>
         <h3>A place for every step.</h3>
         <p>Track your cases and communicate with the Allen internal team.</p>
         <Link href="/how-it-works">View the workflow ↗</Link>

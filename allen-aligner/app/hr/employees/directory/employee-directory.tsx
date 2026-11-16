@@ -17,6 +17,6 @@ export default async function EmployeeDirectory({ search, fixedStatus }: { searc
   return <main className={styles.page}>
     <header className={styles.header}><p>ALLEN ALIGNER · HUMAN RESOURCES</p><h1>{title}</h1><p>Employee profiles and employment records</p></header>
     <EmployeeNav active={fixedStatus === "ACTIVE" ? "active" : fixedStatus === "INACTIVE" ? "inactive" : "all"} canCreate={["HR_ADMIN", "HR_OFFICER"].includes(hr.role)} />
-    <LiveDirectory initialEmployees={data.employees} initialTotal={data.total} initialPage={data.page} pageSize={data.pageSize} initialQuery={q} initialStatus={status || ""} fixedStatus={fixedStatus} />
+    <LiveDirectory initialEmployees={data.employees} initialTotal={data.total} initialPage={data.page} pageSize={data.pageSize} initialQuery={q} initialStatus={status || ""} fixedStatus={fixedStatus} canChangeStatus={hr.role === "HR_ADMIN"} />
   </main>;
 }

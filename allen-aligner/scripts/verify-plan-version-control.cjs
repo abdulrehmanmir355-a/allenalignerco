@@ -4,7 +4,7 @@ req('dotenv').config({path:path.join(root,'.env'),quiet:true});req('dotenv').con
 const {Client}=req('pg'),url=new URL(process.env.DATABASE_URL||''),database=decodeURIComponent(url.pathname.slice(1));
 if(!['localhost','127.0.0.1'].includes(url.hostname)||database!=='allen_aligner')throw Error('Expected the local allen_aligner database; no changes made.');
 const stamp=new Date().toISOString().slice(0,10).replaceAll('-','')+'_'+randomBytes(4).toString('hex'),testName='allen_aligner_plan_test_'+stamp;
-const backupDir=path.join(root,'.private','database-backups');fs.mkdirSync(backupDir,{recursive:true});const backup=path.join(backupDir,`allen-aligner-plan-versions-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`);
+const backupDir=process.env.PLAN_VERSION_TEST_BACKUP_DIR||path.join(root,'.private','database-backups');fs.mkdirSync(backupDir,{recursive:true});const backup=path.join(backupDir,`allen-aligner-plan-versions-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`);
 const bin=(process.env.PG_BIN||'C:/Program Files/PostgreSQL/17/bin').replace(/[\\/]?$/,'/'),env={...process.env,PGHOST:url.hostname,PGPORT:url.port||'5432',PGUSER:decodeURIComponent(url.username),PGPASSWORD:decodeURIComponent(url.password),PGDATABASE:database};
 function run(name,args,runEnv=env){const r=spawnSync(path.join(bin,name+'.exe'),args,{env:runEnv,encoding:'utf8',windowsHide:true});if(r.status!==0)throw Error(name+' failed: '+(r.stderr||r.error?.message||'unknown error'));return r;}
 const report={database,testDatabase:testName,backup,backupValidated:false,migrationTested:false,liveMigrationApplied:false};

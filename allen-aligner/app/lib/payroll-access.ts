@@ -11,7 +11,7 @@ export function canAccessPayroll(role: unknown): role is PayrollRole {
 }
 
 export function canGeneratePayroll(role: unknown): role is PayrollRole {
-  return role === "HR_ADMIN" || role === "HR_OFFICER";
+  return canAccessPayroll(role);
 }
 
 // Salary policy changes remain reserved to HR administrators.

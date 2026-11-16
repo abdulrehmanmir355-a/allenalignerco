@@ -39,3 +39,14 @@ test('edits accept legacy blank emails but reject malformed nonblank email value
   assert.equal(patientEditSchema.safeParse({patientCode:'PAT-001',fullName:'Legacy Patient',email:'invalid',revision:1}).success, false);
   assert.equal(patientEditSchema.parse({patientCode:'PAT-001',fullName:'Legacy Patient',email:' Patient@Example.com ',revision:1}).email, 'patient@example.com');
 });
+const { patientArchiveSchema } = require('../app/lib/patient-validation.ts');
+test('archive requests require a known action, current revision and no caller-supplied ownership', () => {
+  assert.equal(patientArchiveSchema.safeParse({action:'ARCHIVE',revision:0}).success, true);
+  assert.equal(patientArchiveSchema.safeParse({action:'RESTORE',revision:3}).success, true);
+  for (const body of [
+    {action:'DELETE',revision:0}, {action:'ARCHIVE'}, {action:'ARCHIVE',revision:-1},
+    {action:'ARCHIVE',revision:1.5}, {action:'ARCHIVE',revision:'1'},
+    {action:'ARCHIVE',revision:0,clinicId:'forged'}, {action:'ARCHIVE',revision:0,id:'forged'},
+    {action:'ARCHIVE',revision:0,archivedAt:null},
+  ]) assert.equal(patientArchiveSchema.safeParse(body).success, false, `accepted invalid archive request: ${JSON.stringify(body)}`);
+});

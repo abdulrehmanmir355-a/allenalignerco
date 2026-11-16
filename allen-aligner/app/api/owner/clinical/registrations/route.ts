@@ -90,6 +90,7 @@ export async function GET() {
       return {
         employeeId: row.employeeId,
         employeeName: row.employeeName,
+        isSignedInOwner: ownAccount,
         identityStatus: row.identityStatus,
         accountActive: row.accountActive,
         mustChangePassword: row.mustChangePassword,
@@ -103,6 +104,8 @@ export async function GET() {
     return Response.json(
       {
         requests,
+        owner: { fullName: owner.fullName, email: owner.email },
+        appointmentCandidates: appointmentDirectory,
         administratorCount: appointmentDirectory.filter(row => row.clinicalRole === "ADMIN").length,
         administrators: appointmentDirectory.filter(row => row.clinicalRole === "ADMIN"),
         eligibleAdministrators: appointmentDirectory.filter(row => row.eligible),

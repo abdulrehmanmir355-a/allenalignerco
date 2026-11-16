@@ -70,6 +70,30 @@ async function main() {
     r=await createCase(0,patient.id);eq(r.status,201,'linked case saved');const caseId=(await r.json()).redirect.split('/').pop();
     const linked=(await db.query('SELECT "patientId","patientReference" FROM "PortalCase" WHERE id=$1',[caseId])).rows[0];eq(linked.patientId,patient.id,'database patient link');eq(linked.patientReference,patient.patientCode,'reference resolved server-side');
     for(const route of ['/doctor-dashboard/profile','/doctor-dashboard/clinic','/doctor-dashboard/patients','/clinic/patients','/clinic/dashboard','/clinic/team','/clinic/permissions','/clinic/assignments','/clinic/collaboration','/lab','/doctor-dashboard/cases/new?patientId='+patient.id]) { const page=await fetch(base+route,{headers:{Cookie:'allen_doctor_session='+tokens[0]}});eq(page.status,200,'render '+route); }
+    // Module 04 archive/restore: soft delete keeps the record, clinical data and history.
+    async function archiveCall(pid, who, body) { return fetch(base+'/api/clinic/patients/'+pid+'/archive',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',...(who===undefined?{}:{Cookie:'allen_doctor_session='+tokens[who]})},body:JSON.stringify(body)}); }
+    async function patchPatient(pid, who, body) { return fetch(base+'/api/clinic/patients/'+pid,{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',Cookie:'allen_doctor_session='+tokens[who]},body:JSON.stringify(body)}); }
+    eq((await archiveCall(patient.id,0,{action:'ARCHIVE',revision:details.patient.revision})).status,409,'patient with an active case cannot be archived');
+    const archCreate=await (await call({...data,fullName:'SYNTHETIC ARCHIVE',email:'archive@example.invalid',confirmDuplicate:true},0)).json();
+    const archId=archCreate.patient.id; let archRev=archCreate.patient.revision;
+    eq((await archiveCall(archId)).status,401,'anonymous archive denied');
+    eq((await archiveCall(archId,1,{action:'ARCHIVE',revision:archRev})).status,404,'cross-clinic archive denied');
+    eq((await archiveCall(archId,0,{action:'DELETE',revision:archRev})).status,400,'unknown archive action rejected');
+    eq((await archiveCall(archId,0,{action:'ARCHIVE',revision:archRev,clinicId:clinics[1]})).status,400,'archive ownership injection rejected');
+    let archResponse=await archiveCall(archId,0,{action:'ARCHIVE',revision:archRev});
+    eq(archResponse.status,200,'archive saved'); let archivedPatient=(await archResponse.json()).patient;
+    eq(!!archivedPatient.archivedAt,true,'archive timestamp set'); eq(archivedPatient.revision,archRev+1,'archive revision incremented');
+    eq((await archiveCall(archId,0,{action:'ARCHIVE',revision:archRev})).status,409,'stale archive request rejected');
+    let activeList=await (await call(undefined,0)).json(); assert(!activeList.patients.some(p=>p.id===archId)); checks++; console.log('PASS archived patient hidden from active list');
+    const archivedList=await (await call(undefined,0,base,'?archived=1')).json(); assert(archivedList.patients.some(p=>p.id===archId)); checks++; console.log('PASS archived patient listed separately');
+    const archDetail=await fetch(base+'/api/clinic/patients/'+archId,{headers:{Cookie:'allen_doctor_session='+tokens[0]}}); eq(archDetail.status,200,'archived record and history remain readable');
+    let archHistory=(await archDetail.json()).history; eq(archHistory[0].action,'ARCHIVED','archive audited'); eq(archHistory[0].after.archivedAt!==null,true,'archive snapshot recorded');
+    eq((await patchPatient(archId,0,{...edit,patientCode:archivedPatient.patientCode,revision:archivedPatient.revision})).status,404,'archived patient cannot be edited');
+    archResponse=await archiveCall(archId,0,{action:'RESTORE',revision:archivedPatient.revision});
+    eq(archResponse.status,200,'restore saved'); const restoredPatient=(await archResponse.json()).patient;
+    eq(restoredPatient.archivedAt,null,'archive flag cleared'); eq(restoredPatient.revision,archivedPatient.revision+1,'restore revision incremented');
+    activeList=await (await call(undefined,0)).json(); assert(activeList.patients.some(p=>p.id===archId)); checks++; console.log('PASS restored patient returns to active list');
+    archHistory=(await (await fetch(base+'/api/clinic/patients/'+archId,{headers:{Cookie:'allen_doctor_session='+tokens[0]}})).json()).history; eq(archHistory[0].action,'RESTORED','restore audited');
     if(process.env.PATIENT_BROWSER_QA==='true') {
       const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
       const browser=await chromium.launch({headless:true,channel:'msedge'});

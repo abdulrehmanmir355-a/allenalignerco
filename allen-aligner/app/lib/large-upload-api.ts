@@ -8,9 +8,11 @@ import { authorizeCaseLab } from './lab-auth';
 import { clinicalMime } from './large-file-validation';
 import { CHUNK_SIZE, MAX_FILE_SIZE, createUploadId, saveUploadChunk, sha256 } from './clinical-upload-storage';
 import { ensureLargeStorage, assembleUpload, downloadObject, removeUpload, removeUploadParts } from './large-upload-storage';
+import { decodeRecordFilename, encodeRecordFilename, isValidCaseRecordFile } from './case-intake';
 const checksum = z.string().regex(/^[a-f0-9]{64}$/);
-const init = z.object({ name: z.string().min(1).max(240), size: z.number().int().positive().max(MAX_FILE_SIZE), sha256: checksum.optional() });
+const init = z.object({ name: z.string().min(1).max(240), size: z.number().int().positive().max(MAX_FILE_SIZE), sha256: checksum.optional(), recordType: z.enum(['scan','photo','xray']) });
 const fileSelect = { id: true, originalName: true, mime: true, sizeBytes: true, sha256: true, version: true, uploadedByRole: true, uploadedByLabel: true, createdAt: true } as const;
+const nameExtension = (name: string) => name.slice(name.lastIndexOf('.')).toLowerCase();
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store' } });
 export async function largeUploadAPI(request: Request, caseId: string, parts: string[] = [], mode: 'doctor' | 'lab' = 'doctor') {
     try {
@@ -28,23 +30,36 @@ export async function largeUploadAPI(request: Request, caseId: string, parts: st
         if (request.method === 'GET' && parts.length === 0) {
             const files = await db.largeClinicalFile.findMany({ where: { caseId }, select: fileSelect, orderBy: { createdAt: 'desc' } });
             const sessions = await db.largeUploadSession.findMany({ where: { caseId, doctorId: ownerId, clinicId: owner.clinicId, uploadedByRole: actor.role, status: { in: ['CREATED', 'UPLOADING'] }, expiresAt: { gt: new Date() } }, select: { id: true, originalName: true, totalBytes: true, expiresAt: true }, orderBy: { createdAt: 'desc' } });
-            return reply({ files, sessions });
+            const requestedType = new URL(request.url).searchParams.get('recordType');
+            const visibleFiles = files.map(f => { const decoded=decodeRecordFilename(f.originalName); return { ...f, originalName: decoded.filename, recordType: decoded.recordType }; }).filter(f=>!requestedType||f.recordType===requestedType);
+            const visibleSessions = sessions.map(s=>{const decoded=decodeRecordFilename(s.originalName);return {...s,originalName:decoded.filename,recordType:decoded.recordType};}).filter(s=>!requestedType||s.recordType===requestedType);
+            return reply({ files: visibleFiles, sessions: visibleSessions });
         }
         if (request.method === 'GET' && uploadId === 'files' && parts.length === 2) {
             const f = await db.largeClinicalFile.findFirst({ where: { id: operation, caseId } });
             if (!f)
                 throw new PortalError(404, 'File not found.');
-            return new Response(await downloadObject(f.storageKey, f.sizeBytes), { headers: { 'Content-Type': f.mime, 'Content-Length': String(f.sizeBytes), 'Content-Disposition': 'attachment; filename="' + safeFilename(f.originalName) + '"', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" } });
+            if (mode === 'lab' && !['SUBMITTED', 'PLANNING', 'REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'IN_PRODUCTION'].includes(String((await db.portalCase.findFirst({ where: { id: caseId }, select: { status: true } }))?.status))) throw new PortalError(404, 'File not found.');
+            const preview = new URL(request.url).searchParams.get('preview') === '1';
+            const displayName = decodeRecordFilename(f.originalName).filename;
+            if (preview && !['.stl', '.ply', '.obj', '.glb'].includes(nameExtension(displayName))) throw new PortalError(415, 'Preview is available for STL, PLY, OBJ and GLB models only.');
+            return new Response(await downloadObject(f.storageKey, f.sizeBytes), { headers: { 'Content-Type': f.mime, 'Content-Length': String(f.sizeBytes), 'Content-Disposition': (preview ? 'inline' : 'attachment') + '; filename="' + safeFilename(displayName) + '"', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" } });
         }
         if (request.method === 'POST' && parts.length === 0) {
             const parsed = init.safeParse(await jsonBody(request));
             if (!parsed.success)
                 throw new PortalError(400, 'Choose a supported file between 1 byte and 1 GB, with a valid SHA256 if supplied.');
             const b = parsed.data;
-            const name = safeFilename(b.name);
-            const mime = clinicalMime(name);
+            const displayName = safeFilename(b.name);
+            const recordType = b.recordType;
+            if (mode === 'doctor' && !isValidCaseRecordFile(recordType, displayName))
+                throw new PortalError(400, `Choose a file type that matches the ${recordType} record category.`);
+            const name = encodeRecordFilename(recordType, displayName);
+            const mime = clinicalMime(displayName);
             if (!mime)
-                throw new PortalError(400, 'Allowed files: STL, PLY, OBJ, DCM, PDF, JPG, PNG.');
+                throw new PortalError(400, 'Allowed files: STL, OBJ, PLY, 3MF, WRL/VRML, GLB/GLTF, DAE, FBX, OFF, DICOM, ZIP, PDF, JPG and PNG.');
+            if (b.size > 128 * 1024 * 1024 && /\.(?:obj|3mf|wrl|vrml|gltf|dae|fbx|off|zip)$/i.test(displayName))
+                throw new PortalError(413, 'This text or archive format is limited to 128 MB for safe content verification.');
             const s = await db.transaction(async (tx) => {
                 const lock = await tx.portalCase.updateMany({ where: { ...scope, status: { in: uploadStatuses } }, data: { revision: { increment: 1 } } });
                 if (!lock.count)
@@ -83,6 +98,7 @@ export async function largeUploadAPI(request: Request, caseId: string, parts: st
             if (!digest || !checksum.safeParse(digest).success || sha256(bytes) !== digest)
                 throw new PortalError(400, 'Chunk checksum mismatch.');
         }
+        let removeUploadAfterCommit: string | null = null;
         const result = await db.transaction(async (tx) => {
             // Lock case row first for all mutations; protects versions, submit/finalize and cancel/chunk races.
             if (request.method !== 'GET') {
@@ -98,9 +114,9 @@ export async function largeUploadAPI(request: Request, caseId: string, parts: st
             if (request.method === 'DELETE' && parts.length === 1) {
                 if (s.status === 'COMPLETED')
                     throw new PortalError(409, 'Completed files cannot be cancelled.');
-                await removeUpload(s.id);
                 await tx.largeUploadChunk.deleteMany({ where: { uploadId: s.id } });
                 await tx.largeUploadSession.update({ where: { id: s.id }, data: { status: 'CANCELLED' } });
+                removeUploadAfterCommit = s.id;
                 return { message: 'Upload cancelled.' };
             }
             if (request.method === 'POST' && operation === 'finalize' && parts.length === 2 && s.status === 'COMPLETED')
@@ -144,6 +160,9 @@ export async function largeUploadAPI(request: Request, caseId: string, parts: st
             }
             throw new PortalError(405, 'Unsupported upload operation.');
         }, { maxWait: 15000, timeout: 120000 });
+        // Keep private chunks intact unless the cancellation state has committed.
+        if (removeUploadAfterCommit)
+            await removeUpload(removeUploadAfterCommit).catch(() => { });
         // Never delete chunk data before the metadata commit succeeds.
         if (request.method === 'POST' && operation === 'finalize') {
             const s = await db.largeUploadSession.findUnique({ where: { id: uploadId } });

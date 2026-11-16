@@ -4,6 +4,7 @@ import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { currentHR } from "../../../../lib/hr-auth";
 import { db } from "../../../../lib/database";
+import { validateHRDocument } from "../../../../lib/hr-document-file";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -128,38 +129,14 @@ export async function POST(request: Request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    let extension = "";
-
-    if (
-      file.type === "application/pdf" &&
-      bytes.subarray(0, 5).toString() === "%PDF-"
-    ) {
-      extension = ".pdf";
-    } else if (
-      file.type === "image/jpeg" &&
-      bytes[0] === 255 &&
-      bytes[1] === 216 &&
-      bytes[2] === 255
-    ) {
-      extension = ".jpg";
-    } else if (
-      file.type === "image/png" &&
-      bytes.subarray(0, 8).equals(
-        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-      )
-    ) {
-      extension = ".png";
-    }
-
-    if (!extension) {
-      return error("Invalid PDF, JPG or PNG file", 400);
-    }
+    const validated = validateHRDocument(file.name, bytes);
+    if (!validated) return error("Choose a valid PDF, JPG, PNG, DOC, DOCX or XLSX file", 400);
 
     replacement = {
       bytes,
-      extension,
+      extension: validated.extension,
       name: file.name.replace(/[\\/]/g, "_").slice(0, 180),
-      mime: file.type
+      mime: validated.mimeType
     };
   }
 

@@ -7,7 +7,7 @@ import SiteSearch from "./site-search";
 import SiteMotion from "./site-motion";
 
 export function Brand() {
-  return <Link href="/" className="brand" aria-label="Allen Aligner home"><span className="brand-mark" aria-hidden="true">a</span><span>allen<span className="brand-light">aligner</span><small>DIGITAL DENTISTRY, CONNECTED.</small></span></Link>;
+  return <Link href="/" className="brand brand-name-only" aria-label="Allen Aligner home"><span>Allen<span className="brand-light"> Aligner</span></span></Link>;
 }
 export default function SiteShell({ children, session }: { children: React.ReactNode; session: SessionNavigation }) {
   const signedIn = session.doctor || session.hr || session.clinic;

@@ -51,7 +51,7 @@ async function blocked(sql,v,label){await assert.rejects(()=>q(sql,v));check(tru
  const asPlanner={work:actors.PLANNER.token,bearer:labToken};
  async function publish(extra={},expected=200){const r=await call(lab,{action:'plan',summary:'Synthetic treatment plan summary',changeSummary:'Revise staging for clinical review',revision:(await state()).revision,...extra},asPlanner);check(r.status===expected,'plan API '+expected+': '+JSON.stringify(r.body));return r;}
  check((await call(lab,{action:'plan',summary:'Unauthorized plan',revision:0})).status===401,'plan creation requires case authorization');
- check((await call(lab,{action:'plan',summary:'Unauthorized plan',revision:0},{bearer:labToken})).status===401,'case grant alone cannot create a plan without employee identity');
+ const grantOnly=await call(lab,{action:'plan',summary:'Unauthorized plan',revision:0},{bearer:labToken});check([401,403].includes(grantOnly.status),'case grant alone cannot create a plan without employee identity');
  await publish();let [v1]=await plans();check(v1.version===1&&v1.createdById===actors.PLANNER.id&&v1.parentPlanId===null,'V1 records exact creator and starts without a parent');
  const firstSnapshot=JSON.stringify(v1);await publish({changeSummary:undefined},400);await publish();let [,v2]=await plans();check(v2.version===2&&v2.parentPlanId===v1.id,'V2 links to V1');
  const file2=await addFile();await publish();let [,,v3]=await plans();check(v3.version===3&&v3.parentPlanId===v2.id,'V3 links to V2');

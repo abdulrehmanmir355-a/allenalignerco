@@ -15,5 +15,9 @@ if(list.status!==0||!list.stdout.includes('ClinicalReview'))throw Error('Backup 
  if(!found.rowCount)await db.query(fs.readFileSync(path.join(root,'database/migrations/20261027150000_clinical_review_due_date.sql'),'utf8'));
  const check=await db.query(`SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='ClinicalReview' AND column_name='dueDate'`);
  if(!check.rowCount)throw Error('Due date column not detected after applying migration.');
- console.log(JSON.stringify({database:'allen_aligner',migration:'20261027150000_clinical_review_due_date.sql',applied:!found.rowCount,backup,backupValidated:true,dueDateColumnPresent:true}));
+ const reasonGuard=await db.query(`SELECT 1 FROM pg_trigger WHERE tgrelid='"ClinicalReview"'::regclass AND tgname='aa_clinical_reassignment_reason_guard' AND NOT tgisinternal`);
+ if(!reasonGuard.rowCount)await db.query(fs.readFileSync(path.join(root,'database/migrations/20261113160000_clinical_reassignment_reason.sql'),'utf8'));
+ const reasonGuardCheck=await db.query(`SELECT 1 FROM pg_trigger WHERE tgrelid='"ClinicalReview"'::regclass AND tgname='aa_clinical_reassignment_reason_guard' AND NOT tgisinternal`);
+ if(!reasonGuardCheck.rowCount)throw Error('Clinical reassignment reason guard was not detected after applying migration.');
+ console.log(JSON.stringify({database:'allen_aligner',migrations:[...(!found.rowCount?['20261027150000_clinical_review_due_date.sql']:[]),...(!reasonGuard.rowCount?['20261113160000_clinical_reassignment_reason.sql']:[])],backup,backupValidated:true,dueDateColumnPresent:true,reassignmentReasonGuardPresent:true}));
  }finally{await db.end();}})().catch(e=>{console.error(e.code||'',e.message);process.exitCode=1});

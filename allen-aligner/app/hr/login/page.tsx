@@ -32,7 +32,9 @@ function LoginForm() {
         setError(result.message || "Login unsuccessful.");
         return;
       }
-      window.location.assign(result.redirectTo || (ownerMode ? "/owner/command-center" : "/hr/offboarding/dashboard"));
+      const requestedDestination = searchParams.get("next");
+      const allowedDestination = !ownerMode && requestedDestination === "/quality/risks" ? requestedDestination : null;
+      window.location.assign(allowedDestination || result.redirectTo || (ownerMode ? "/owner/command-center" : "/hr/offboarding/dashboard"));
     } catch {
       setError(ownerMode ? "Owner sign-in is temporarily unavailable." : "Unable to connect. Please try again.");
     } finally {

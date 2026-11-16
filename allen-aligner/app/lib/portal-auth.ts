@@ -18,6 +18,15 @@ export async function currentDoctor() {
  if (!session || session.expiresAt <= new Date() || !session.doctor.isVerified || !session.doctor.clinicId) return null;
  return session.doctor;
 }
+// Restricted to the explicit clinic-setup route: ordinary doctor pages and APIs
+// continue to require an already linked clinic through currentDoctor/apiDoctor.
+export async function verifiedDoctorForClinicSetup() {
+ const token=(await cookies()).get(sessionCookie)?.value;
+ if(!token||!/^[a-f0-9]{64}$/.test(token))return null;
+ const session=await db.doctorSession.findUnique({where:{tokenHash:digest(token)},include:{doctor:{select:{id:true,clinicId:true,fullName:true,email:true,clinicName:true,isVerified:true}}}});
+ if(!session||session.expiresAt<=new Date()||!session.doctor.isVerified||session.doctor.clinicId)return null;
+ return session.doctor;
+}
 export async function requireDoctor() {
  const doctor = await currentDoctor();
  if (!doctor) redirect("/doctor-login");
