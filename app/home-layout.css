@@ -1,0 +1,44 @@
+/* Dedicated public-home wrappers avoid generic portal container styles. */
+.professional-home { width:100%; min-width:0; }
+.professional-home .allen-home-content {
+  width:calc(100% - clamp(32px,6vw,128px));
+  max-width:1600px;
+  min-width:0;
+  margin-inline:auto;
+  box-sizing:border-box;
+}
+.professional-home .editorial-hero-grid {
+  display:grid;
+  grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);
+  gap:clamp(24px,4vw,64px);
+  align-items:center;
+}
+.professional-home .allen-home-content > * { min-width:0; }
+.professional-home .section-heading {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:32px;
+}
+.professional-home .section-heading > p { max-width:440px; font-size:15px; }
+.professional-home h2 { font-size:clamp(32px,3.2vw,52px); }
+.professional-home .capability-strip > .allen-home-content {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:16px 24px;
+}
+.professional-home .capability-strip p { font-size:12px; }
+.professional-home .professional-features { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.professional-home .editorial-split { grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); }
+@media(max-width:760px){
+  .professional-home .editorial-hero-grid,
+  .professional-home .professional-features,
+  .professional-home .editorial-split { grid-template-columns:minmax(0,1fr); }
+  .professional-home .section-heading { display:block; }
+  .professional-home .section-heading > p { margin-top:20px; max-width:none; }
+  .professional-home .capability-strip > .allen-home-content { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px; }
+  .professional-home .capability-strip > .allen-home-content > span { grid-column:1/-1; }
+  .professional-home .clinical-composition { max-width:100%; }
+}

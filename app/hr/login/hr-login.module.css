@@ -1,0 +1,103 @@
+﻿.shell {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 18px;
+  background: radial-gradient(circle at 15% 10%, #dceef1, transparent 55%), linear-gradient(135deg, #f4f8fb, #e9eff5);
+}
+.card {
+  width: min(100%, 470px);
+  padding: 38px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px #12304718;
+  border: 1px solid #ffffff;
+  animation: enter 650ms ease-out both;
+}
+.brand {
+  font-size: 24px;
+  font-weight: 700;
+  color: #16354b;
+  letter-spacing: 1px;
+}
+.brand strong { color: #008d99; }
+.kicker {
+  margin: 8px 0 28px;
+  color: #738497;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.card :global(main) {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.card :global(input:not([type="checkbox"])) {
+  width: 100%;
+  border: 1px solid #d5e0e8;
+  border-radius: 11px;
+  padding: 13px;
+  background: #f9fbfd;
+}
+.card :global(input:focus-visible) {
+  outline: 2px solid #008d99;
+  outline-offset: 2px;
+}
+.card :global(button[type="submit"]) {
+  background: #007e8c;
+  color: white;
+  border-radius: 11px;
+  padding: 13px 20px;
+  cursor: pointer;
+  transition: transform .2s, background .2s;
+}
+.card :global(button[type="submit"]:hover) {
+  background: #006774;
+  transform: translateY(-2px);
+}
+.footer {
+  text-align: center;
+  margin-top: 28px;
+  color: #82919e;
+  font-size: 12px;
+}
+@keyframes enter {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media(max-width: 600px) {
+  .card { padding: 26px 20px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .card { animation: none; }
+}
+/* HR_LOGIN_POLISH_V1 */
+.card :global(input:not([type="checkbox"])) {
+  transition: border-color .25s, box-shadow .25s, background .25s;
+}
+.card :global(input:not([type="checkbox"]):focus) {
+  border-color: #008d99;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px #008d991a;
+}
+.card :global(button[type="submit"]) {
+  width: 100%;
+  min-height: 48px;
+  font-weight: 650;
+  box-shadow: 0 8px 24px #007e8c30;
+}
+.card :global(button[type="submit"]:disabled) {
+  opacity: .65;
+  cursor: wait;
+  transform: none;
+}
+.card :global(a) {
+  color: #007e8c;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .card * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

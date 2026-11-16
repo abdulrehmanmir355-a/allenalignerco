@@ -1,0 +1,4 @@
+const fs=require('node:fs'),path=require('node:path');
+require('dotenv').config({quiet:true});require('dotenv').config({path:'.env.local',override:true,quiet:true});
+const {Pool}=require('pg');
+(async()=>{const p=new Pool({connectionString:process.env.DATABASE_URL,max:1});try{if(process.argv.includes('--apply'))await p.query(fs.readFileSync(path.join(__dirname,'../database/migrations/20261027000100_customer_service.sql'),'utf8'));const r=await p.query("SELECT to_regclass('allen_service_ticket') IS NOT NULL AS tickets,to_regclass('allen_service_audit') IS NOT NULL AS audit,to_regprocedure('aa_service_refresh()') IS NOT NULL AS escalation_worker");console.log(JSON.stringify(r.rows[0]));}finally{await p.end();}})().catch(e=>{console.error('Customer Service setup failed:',e.code||e.name);process.exitCode=1;});

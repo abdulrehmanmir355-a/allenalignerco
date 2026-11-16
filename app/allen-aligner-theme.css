@@ -1,0 +1,286 @@
+/*
+ ALLEN ALIGNER — GLOBAL COLOR SYSTEM V1
+ Official palette:
+ Transparent / Clear
+ Teal:      #087989
+ Deep Blue: #113847
+ Ice Blue:  #EAF6F7
+*/
+
+:root {
+  --aa-clear: transparent;
+  --aa-teal: #087989;
+  --aa-blue: #113847;
+  --aa-ice: #EAF6F7;
+
+  --aa-border: color-mix(in srgb,
+    var(--aa-teal) 40%, transparent);
+
+  --aa-soft-teal: color-mix(in srgb,
+    var(--aa-teal) 13%, var(--aa-ice));
+
+  --aa-shadow: 0 12px 30px
+    color-mix(in srgb, var(--aa-blue) 12%, transparent);
+
+  --aa-radius: 12px;
+
+  color-scheme: light;
+}
+
+/* COMPLETE WEBSITE FOUNDATION */
+
+html,
+body {
+  background: var(--aa-ice) !important;
+  color: var(--aa-blue) !important;
+}
+
+body {
+  accent-color: var(--aa-teal);
+}
+
+/* HEADINGS AND GENERAL TEXT */
+
+:is(h1,h2,h3,h4,h5,h6),
+:is(.page-heading,.section-heading,.hero,.lead) {
+  color: var(--aa-blue) !important;
+}
+
+:is(p,li,small,label,strong,td,th) {
+  color: var(--aa-blue);
+}
+
+:is(.eyebrow,.breadcrumb) {
+  color: var(--aa-blue) !important;
+}
+
+/* MAIN PAGE SURFACES */
+
+:is(
+  .panel,
+  .card,
+  .feature-card,
+  .stat-card,
+  .metric-card,
+  .timeline-entry,
+  .plan-version,
+  .upload-placeholder,
+  .notice
+) {
+  background: var(--aa-ice) !important;
+  color: var(--aa-blue) !important;
+  border-color: var(--aa-border) !important;
+  border-radius: 16px;
+  box-shadow: var(--aa-shadow);
+}
+
+/* MAIN HEADER / NAVIGATION */
+
+:is(
+  .site-header,
+  .navigation-root,
+  .primary-nav,
+  .portal-sidebar,
+  .clinic-navigation
+) {
+  color: var(--aa-blue);
+  border-color: var(--aa-border) !important;
+}
+
+.primary-nav .nav-group-trigger,
+.primary-nav .nav-home,
+.primary-nav .nav-login,
+.clinic-links a,
+.portal-sidebar nav a,
+.portal-sidebar summary {
+  color: var(--aa-blue) !important;
+  border-radius: var(--aa-radius) !important;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+/* ALL MENU SUBMENU PANELS */
+
+.primary-nav .nav-submenu,
+.primary-nav .dropdown-menu,
+.primary-nav .submenu {
+  background: var(--aa-ice) !important;
+  color: var(--aa-blue) !important;
+  border: 1px solid var(--aa-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--aa-shadow);
+}
+
+.primary-nav .nav-submenu[hidden] {
+  display: none !important;
+}
+
+/* SUBMENU LINKS */
+
+.primary-nav .nav-submenu a {
+  color: var(--aa-blue) !important;
+  border-radius: 10px !important;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    transform 300ms ease;
+}
+
+/* ALL BUTTONS */
+
+:is(
+  button,
+  a.button,
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  [role="button"]
+) {
+  border-radius: var(--aa-radius) !important;
+  min-height: 44px;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    transform 300ms ease;
+}
+
+/* PRIMARY ACTIONS */
+
+:is(
+  .button,
+  button[type="submit"],
+  input[type="submit"]
+) {
+  background: var(--aa-blue) !important;
+  color: var(--aa-ice) !important;
+  border-color: var(--aa-blue) !important;
+}
+
+/* HOVER INTERACTIONS */
+
+@media (hover: hover) and (pointer: fine) {
+
+  :is(
+    .button,
+    button[type="submit"],
+    input[type="submit"],
+    .primary-nav .nav-group-trigger,
+    .primary-nav .nav-home,
+    .primary-nav .nav-login,
+    .clinic-links a,
+    .portal-sidebar nav a,
+    .portal-sidebar summary
+  ):hover:not(:disabled) {
+    background: var(--aa-teal) !important;
+    color: var(--aa-blue) !important;
+    border-color: var(--aa-teal) !important;
+    box-shadow: var(--aa-shadow);
+    transform: translateY(-2px);
+  }
+
+  .primary-nav .nav-group-trigger[aria-expanded="true"] {
+    background: var(--aa-teal) !important;
+    color: var(--aa-blue) !important;
+  }
+
+  .primary-nav .nav-submenu a:hover {
+    background: var(--aa-teal) !important;
+    color: var(--aa-blue) !important;
+    transform: translateX(3px);
+  }
+
+  .primary-nav .nav-submenu a:hover * {
+    color: inherit !important;
+  }
+
+  :is(
+    .panel,
+    .feature-card,
+    .stat-card,
+    .metric-card
+  ):hover {
+    border-color: var(--aa-teal) !important;
+    box-shadow: var(--aa-shadow);
+  }
+}
+
+/* FORM FIELDS */
+
+:is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select
+) {
+  background: var(--aa-ice) !important;
+  color: var(--aa-blue) !important;
+  border: 1px solid var(--aa-border) !important;
+  border-radius: 10px !important;
+}
+
+:is(input,textarea,select,button,a):focus-visible {
+  outline: 3px solid var(--aa-teal) !important;
+  outline-offset: 3px;
+}
+
+/* TABLES AND DATA */
+
+table {
+  border-color: var(--aa-border) !important;
+  color: var(--aa-blue);
+}
+
+:is(th,td) {
+  border-color: var(--aa-border) !important;
+}
+
+tbody tr:hover {
+  background: var(--aa-soft-teal);
+}
+
+/* LABELS, BADGES AND INDICATORS */
+
+:is(.badge,.tag,.chip) {
+  background: var(--aa-soft-teal);
+  color: var(--aa-blue) !important;
+  border-color: var(--aa-border) !important;
+}
+
+progress,
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--aa-teal);
+}
+
+/* LINKS */
+
+a {
+  transition:
+    color 300ms ease,
+    background-color 300ms ease;
+}
+
+a:not(.button):not(.nav-group-trigger):hover {
+  color: var(--aa-blue);
+}
+
+/* ACCESSIBILITY */
+
+button:disabled,
+[aria-disabled="true"] {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

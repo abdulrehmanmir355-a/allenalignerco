@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { currentHR } from "../lib/hr-auth";
+export default async function HRWorkspace({ children }: { children: React.ReactNode }) {
+  const hr = await currentHR(); if (!hr) redirect("/hr/login");
+  return <div className="hr-workspace"><nav className="management-nav" aria-label="HR workspace"><Link href="/hr/offboarding/dashboard">Dashboard</Link><Link href="/hr/access">Invitations & Access</Link>{["HR_ADMIN", "HR_OFFICER"].includes(hr.role) && <Link href="/hr/password-recovery">Password Recovery</Link>}<Link href="/hr/employees/directory">All Employees</Link><Link href="/hr/employees/active">Active Employees</Link><Link href="/hr/employees/inactive">Inactive Employees</Link>{["HR_ADMIN", "HR_OFFICER"].includes(hr.role) && <Link href="/hr/employees/new">Add Employee</Link>}<Link href="/hr/employees/history">Employee History</Link><Link href="/hr/documents">Documents</Link><Link href="/hr/offboarding">Offboarding Directory</Link><Link href="/hr/suppliers">Supplier management</Link><Link href="/hr/manage/employees">Edit Profiles</Link><Link href="/hr/manage/departments">Departments</Link><Link href="/hr/manage/designations">Designations</Link><Link href="/hr/manage/attendance">Attendance</Link><Link href="/hr/manage/leave">Leave</Link><Link href="/hr/manage/onboarding">Onboarding</Link><Link href="/hr/manage/offboarding">Exit Workflow</Link><Link href="/hr/manage/assets">Assets</Link><Link href="/hr/manage/clearance">Clearance</Link><Link href="/hr/manage/reports">Reports</Link>{hr.role === "HR_ADMIN" && <Link href="/hr/manage/users">Roles</Link>}<Link href="/hr/performance">Work & Performance</Link><Link href="/hr/settings">Account</Link><form method="post" action="/api/hr/logout"><button>Logout</button></form></nav>{children}</div>;
+}
+
+

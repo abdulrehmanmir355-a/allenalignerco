@@ -1,0 +1,50 @@
+/* ALLEN_HR_CARD_FIX */
+
+.statCard {
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+  min-height: 154px !important;
+  padding: 22px 24px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: #113847 !important;
+  color: #ffffff !important;
+  overflow: visible !important;
+}
+
+.statLabel {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: static !important;
+  width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.statValue {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 32px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+}

@@ -1,0 +1,5 @@
+import Link from "next/link";
+import { releasedPlanIds } from "../../lib/clinical-service";
+import { db } from "../../lib/database";
+import { requireDoctor, ownCases } from "../../lib/portal-auth";
+export default async function Plans(){const d=await requireDoctor();const plans=await db.treatmentPlan.findMany({where:{case:ownCases(d)},include:{case:{select:{patientReference:true}}},orderBy:{createdAt:"desc"},take:200});const released=await releasedPlanIds([...new Set(plans.map(p=>p.caseId))]);const visible=plans.filter(p=>released.has(p.id));return <><div className="page-heading"><div><h1>Treatment plans</h1><p>Laboratory-published plan versions and your review decisions.</p></div></div><section className="panel padded">{visible.length?visible.map(p=><Link className="case-row" key={p.id} href={`/doctor-dashboard/cases/${p.caseId}`}><strong>{p.case.patientReference}</strong><span>Version {p.version}</span><span className="badge">{p.decision}</span></Link>):<p>No treatment plans published yet.</p>}<div className="notice">3D viewer integration is not connected. Review currently covers laboratory-supplied written plan summaries.</div></section></>;}

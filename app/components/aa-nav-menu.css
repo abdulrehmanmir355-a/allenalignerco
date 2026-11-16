@@ -1,0 +1,9 @@
+﻿.aa-nav-menu { position:relative; display:inline-block; }
+.aa-nav-menu > summary { display:flex; align-items:center; gap:9px; padding:10px 14px; cursor:pointer; list-style:none; font-weight:600; color:#123846; }
+.aa-nav-menu > summary::-webkit-details-marker { display:none; }
+.aa-nav-bars { display:flex; flex-direction:column; gap:4px; }
+.aa-nav-bars span { display:block; width:23px; height:2px; background:#123846; border-radius:3px; }
+.aa-nav-panel { position:absolute; top:100%; right:0; z-index:1000; width:min(360px,92vw); padding:12px; background:white; border:1px solid #ddd; border-radius:12px; box-shadow:0 12px 30px #0002; }
+.aa-nav-panel nav { display:flex!important; flex-direction:column!important; align-items:stretch!important; gap:5px!important; width:100%!important; height:auto!important; }
+.aa-nav-panel nav > * { width:100%; }
+.aa-nav-panel nav a:hover, .aa-nav-panel nav button:hover { background:#edf5f6; }

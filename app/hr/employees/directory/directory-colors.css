@@ -1,0 +1,90 @@
+main.aa-directory-page header h1 {
+    color: #ffffff !important;
+}
+main.aa-directory-page > div > div > section:first-child {
+    background: #113847 !important;
+    color: #ffffff !important;
+}
+main.aa-directory-page > div > div > section:first-child > h2,
+main.aa-directory-page > div > div > section:first-child > p,
+main.aa-directory-page > div > div > section:first-child > a {
+    color: #ffffff !important;
+}
+main.aa-directory-page > div > div > section:first-child input {
+    background: #ffffff !important;
+    color: #163541 !important;
+}
+main.aa-directory-page header p,
+main.aa-directory-page header a {
+    color: #ffffff !important;
+}
+/* Light employee cards need their own readable foreground colors. */
+main.aa-directory-page .aa-employee-card,
+main.aa-directory-page .aa-employee-card > strong,
+main.aa-directory-page .aa-employee-card > div {
+    color: #123b62 !important;
+}
+main.aa-directory-page .aa-employee-card-details {
+    display: grid;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+main.aa-directory-page .aa-employee-card-department,
+main.aa-directory-page .aa-employee-card-department b {
+    color: #075e4d !important;
+}
+main.aa-directory-page .aa-employee-card-designation,
+main.aa-directory-page .aa-employee-card-designation b {
+    color: #174f86 !important;
+}
+main.aa-directory-page .aa-employee-card:focus-visible {
+    outline: 3px solid #31c3d3;
+    outline-offset: 3px;
+}
+
+/* ALLEN ALIGNER EMPLOYEE TOOLBAR */
+.aa-directory-page .aa-employee-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    align-items: center !important;
+    direction: ltr !important;
+    width: 100% !important;
+    gap: 16px !important;
+    padding: 14px 0 20px !important;
+    margin: 0 !important;
+}
+
+.aa-directory-page .aa-employee-title {
+    color: #ffffff !important;
+    text-align: left !important;
+    font-size: 32px !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    display: block !important;
+}
+
+.aa-directory-page .aa-employee-button {
+    background: #087989 !important;
+    color: #ffffff !important;
+    padding: 12px 18px !important;
+    border-radius: 9px !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    justify-self: end !important;
+}
+
+@media (max-width: 480px) {
+    .aa-directory-page .aa-employee-title {
+        font-size: 24px !important;
+    }
+    .aa-directory-page .aa-employee-button {
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+}

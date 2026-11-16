@@ -1,0 +1,4 @@
+import Link from "next/link";
+export default function AuthFrame({ children, register = false }: { children: React.ReactNode; register?: boolean }) {
+ return <main className="container auth-layout"><aside className="auth-story"><span className="eyebrow">THE ALLEN ALIGNER NETWORK</span><h1>Your practice.<br/>A clearer<br/><em>connection.</em></h1><p>A thoughtful digital workflow for dental professionals.</p><div className="auth-benefits"><p><span>01</span> Register your professional details</p><p><span>02</span> Await account verification</p><p><span>03</span> Discover the case workspace</p></div><Link href="/how-it-works">See how it works →</Link></aside><section className="auth-form"><span className="eyebrow">{register ? "JOIN THE NETWORK" : "DOCTOR ACCESS"}</span><h2>{register ? "Let’s get acquainted." : "Welcome back."}</h2><p>{register ? "Tell us about you and your practice." : "Enter your details to verify your credentials."}</p>{children}</section></main>;
+}

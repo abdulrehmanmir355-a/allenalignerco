@@ -1,0 +1,5 @@
+import { currentClinic } from "../../../../lib/clinic-auth";
+import { db } from "../../../../lib/database";
+import { audit } from "../../../../lib/hr-management";
+import { failure,PortalError } from "../../../../lib/portal-http";
+export async function GET(_r:Request,{params}:{params:Promise<{id:string}>}){try{const user=await currentClinic();if(!user)throw new PortalError(401,'Clinic login required.');const {id}=await params;if(!/^[a-f0-9-]{36}$/i.test(id))throw new PortalError(404,'Document not found.');const row=(await db.query('SELECT name,data FROM "ClinicDocument" WHERE id=$1 AND "clinicId"=$2',[id,user.clinicId]))[0];if(!row)throw new PortalError(404,'Document not found.');await audit(db,user.id,user.clinicId,'document.download',id);return new Response(new Uint8Array(row.data),{headers:{'Content-Type':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(row.name),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}catch(e){return failure(e)}}

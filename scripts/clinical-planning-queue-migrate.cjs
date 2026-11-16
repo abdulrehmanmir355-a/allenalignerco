@@ -1,0 +1,19 @@
+const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),req=require('node:module').createRequire(path.join(root,'package.json'));
+req('dotenv').config({path:path.join(root,'.env'),quiet:true});req('dotenv').config({path:path.join(root,'.env.local'),override:true,quiet:true});
+const {Client}=req('pg'),u=new URL(process.env.DATABASE_URL||'');
+if(!['127.0.0.1','localhost'].includes(u.hostname)||decodeURIComponent(u.pathname.slice(1))!=='allen_aligner')throw Error('Expected the existing local allen_aligner database; no changes made.');
+const stamp=new Date().toISOString().replace(/[:.]/g,'-'),dir=path.join(root,'.private','database-backups');fs.mkdirSync(dir,{recursive:true});
+const backup=path.join(dir,'allen-aligner-planning-queue-'+stamp+'.dump'),bin=process.env.PG_BIN||'C:/Program Files/PostgreSQL/17/bin';
+const env={...process.env,PGHOST:u.hostname,PGPORT:u.port||'5432',PGUSER:decodeURIComponent(u.username),PGPASSWORD:decodeURIComponent(u.password),PGDATABASE:'allen_aligner'};
+const dump=spawnSync(path.join(bin,'pg_dump.exe'),['--format=custom','--no-owner','--no-privileges','--file',backup],{env,encoding:'utf8',windowsHide:true});
+if(dump.status!==0)throw Error('Database backup failed; migration was not applied. '+(dump.stderr||''));
+const list=spawnSync(path.join(bin,'pg_restore.exe'),['--list',backup],{encoding:'utf8',windowsHide:true});
+if(list.status!==0||!list.stdout.includes('ClinicalReview'))throw Error('Backup archive verification failed; migration was not applied.');
+(async()=>{const db=new Client({connectionString:u.toString()});await db.connect();try{
+ const found=await db.query(`SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='ClinicalReview' AND column_name='dueDate'`);
+ if(!found.rowCount)await db.query(fs.readFileSync(path.join(root,'database/migrations/20261027150000_clinical_review_due_date.sql'),'utf8'));
+ const check=await db.query(`SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='ClinicalReview' AND column_name='dueDate'`);
+ if(!check.rowCount)throw Error('Due date column not detected after applying migration.');
+ console.log(JSON.stringify({database:'allen_aligner',migration:'20261027150000_clinical_review_due_date.sql',applied:!found.rowCount,backup,backupValidated:true,dueDateColumnPresent:true}));
+ }finally{await db.end();}})().catch(e=>{console.error(e.code||'',e.message);process.exitCode=1});

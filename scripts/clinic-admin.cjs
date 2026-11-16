@@ -1,0 +1,7 @@
+// Explicit operator-only provisioning. Never called by public registration.
+require('dotenv').config({quiet:true});
+const {Client}=require('pg');
+const [email,clinicId,patientFlag]=process.argv.slice(2);
+if(patientFlag && patientFlag!=="--patient-access")throw Error("Unknown flag");
+if(!email||!clinicId){console.error('Usage: node scripts/clinic-admin.cjs <approved-email> <existing-clinic-id>');process.exit(1)}
+(async()=>{const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();try{await db.query('BEGIN');const clinic=await db.query('SELECT id FROM "Clinic" WHERE id=$1',[clinicId]);if(!clinic.rowCount)throw Error('Clinic does not exist. Supply a verified existing clinic ID.');const result=await db.query(`UPDATE "ClinicUser" SET "clinicId"=$2,role='CLINIC_ADMIN',"isActive"=true,"canAccessPatients"=$3 WHERE LOWER(email)=LOWER($1) AND "isActive"=false AND "clinicId" IS NULL RETURNING id`,[email,clinicId,patientFlag==="--patient-access"]);if(result.rowCount!==1)throw Error('Expected one pending, unassociated account.');await db.query('INSERT INTO "ManagementAudit" ("actorId",scope,action,"recordId") VALUES($1,$2,$3,$4)',['local-operator',clinicId,'clinic.approved',result.rows[0].id]);await db.query('COMMIT');console.log('Clinic administrator approved with the explicitly requested access.');}catch(e){await db.query('ROLLBACK');throw e}finally{await db.end()}})().catch(e=>{console.error(e.message);process.exitCode=1});
