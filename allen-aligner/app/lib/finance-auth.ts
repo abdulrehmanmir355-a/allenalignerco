@@ -1,15 +1,12 @@
 import "server-only";
+import { currentHR } from "./hr-auth";
 
-/**
- * Finance access is intentionally disabled in this Cloudflare deployment.
- * The existing finance login is localhost-only and depends on local disk.
- * Keep all production payroll routes unauthenticated and inaccessible until
- * a production-ready identity provider is configured.
- */
-export async function currentFinance(): Promise<null> {
-  return null;
+// Payroll uses the database-backed HR session, including its expiry and
+// account-active checks. It never trusts the old localhost-only file login.
+export async function currentFinance() {
+  return currentHR();
 }
 
-export async function financeActionActor(): Promise<null> {
-  return null;
+export async function financeActionActor() {
+  return currentHR();
 }

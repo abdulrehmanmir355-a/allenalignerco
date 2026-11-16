@@ -1,5 +1,2 @@
-import { redirect } from "next/navigation";
-
-export default function FinancePage() {
-  redirect("/finance/login");
-}
+export const dynamic = "force-dynamic";
+export { default } from "../hr/payroll/page";
