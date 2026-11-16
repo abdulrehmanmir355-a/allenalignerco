@@ -13,6 +13,12 @@ Every conversation belongs to one existing `PortalCase`. Both sides use the same
 
 The treating doctor and authorized Allen clinical team can exchange case updates, questions and status notes. They can reply to a particular message and reference a released plan version or an existing case document. The case context remains visible beside the thread. Status notes communicate about status; actual lifecycle transitions and treatment approvals remain in the existing authorized workflows.
 
+### Leader-managed case contact
+
+When a doctor sends the first authenticated message for a submitted case, the case appears in the Leader Case Assignments queue at `/clinical/leader`. An authorized Clinical Lead or administrator selects an active Reviewer or Clinical Lead, records a reason, and can later reassign the case. Assignment and reassignment are retained in an append-only audit. The doctor and newly assigned person are notified.
+
+Only the assigned person, the active Clinical Lead/administrators, and an independently assigned plan reviewer can access the internal conversation. The assigned person can reply directly to doctor messages shared with the case team; internal-only doctor messages and private clinical notes cannot be quoted into the shared thread. The doctor can see the assigned contact and only messages shared with the case team. Case ownership for the doctor portal is unchanged.
+
 History is append-only. It includes existing messages without inventing authenticated identities for older rows. Fifty messages load at a time; earlier history uses a stable case-bound cursor. Visible pages refresh incrementally every 15 seconds and include a manual refresh. The search field searches loaded messages. The inbox search finds authorized cases by reference, case ID or doctor. There are no read/delivery-receipt claims.
 
 ## Access and confidentiality
@@ -38,6 +44,8 @@ Doctor messages notify eligible active clinical leads/admins and the assigned cu
 For an external Playwright installation, set `APPROVAL_PLAYWRIGHT_PATH`. `COMMUNICATION_SCREENSHOT_DIR` optionally records the browser result. The optional test server uses localhost port 3129 and the existing test build directory.
 
 Active internal clinical staff and appropriate case assignments must be configured through existing administration. Existing private document-download and large-file storage policies continue to apply.
+
+Run the local application with `npm run dev` (or `npm run dev:local`); both bind to `127.0.0.1`. This communication and assignment workflow is intended for localhost development and is not configured for hosted deployment.
 
 ## Design references
 
