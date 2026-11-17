@@ -1,5 +1,0 @@
-// Local authorized operator only. No public account can approve itself.
-require('dotenv').config({quiet:true});
-const {Client}=require('pg');
-(async()=>{const [action,email]=process.argv.slice(2);if(!['activate','deactivate'].includes(action)||!email)throw Error('Usage: node scripts/hr-admin.cjs activate|deactivate EMAIL');
- const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();try{await client.query('BEGIN');const result=await client.query('UPDATE "HRUser" SET "isActive"=$1 WHERE LOWER(email)=$2 RETURNING id',[action==='activate',email.trim().toLowerCase()]);if(result.rowCount!==1)throw Error('HR account not found.');if(action==='deactivate')await client.query('DELETE FROM "HRSession" WHERE "hrUserId"=$1',[result.rows[0].id]);await client.query('COMMIT');console.log(action==='activate'?'HR account activated.':'HR account deactivated and sessions revoked.');}catch(e){await client.query('ROLLBACK');throw e;}finally{await client.end();}})().catch(e=>{console.error(e.code||e.message);process.exitCode=1;});

@@ -1,2 +1,0 @@
-export type SupplierRecord = { id: string; companyName: string; contactName: string; email: string; phone: string; category: string; paymentTerms: string; address: string; notes: string; status: 'ACTIVE' | 'INACTIVE'; createdAt: string; updatedAt: string };
-export type SupplierEvent = { id: string; supplierId: string; companyName: string; action: string; detail: { before?: Record<string, unknown>; after?: Record<string, unknown> }; createdAt: string; actorEmail: string };
